@@ -1,0 +1,26 @@
+# Führt einen Pull Request automatisch zusammen, sobald der Maintainer ihn freigegeben hat und alle Pflicht-Checks
+# grün sind (die Pflicht-Checks setzt der Branch-Schutz von main). Ohne Freigabe wird nichts zusammengeführt.
+# Für Pull Requests aus Forks gibt GitHub bei Reviews nur ein Lese-Token; dort schaltet der Maintainer Auto-Merge
+# beim Freigeben mit einem Klick ein („Enable auto-merge“).
+name: Auto-merge after approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    if: >-
+      github.event.review.state == 'approved' &&
+      github.event.review.user.login == 'MartinBetz21' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash)
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

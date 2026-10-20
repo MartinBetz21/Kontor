@@ -1,0 +1,12 @@
+  <label>Name<input name="name" value="{{ a.name or '' }}" required></label>
+  <label>Anbieter<input name="provider" value="{{ a.provider or '' }}"></label>
+  <label>Betrag brutto<input name="amount" value="{{ a.amount|money_input if a.amount is defined and a.amount is not none else '' }}" inputmode="decimal" placeholder="leer = noch offen"></label>
+  <label>Intervall<select name="interval">{% for k, v in intervals.items() %}<option value="{{ k }}" {{ 'selected' if a.interval == k }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Nächste Abbuchung<input type="date" name="next_due" value="{{ a.next_due or '' }}"></label>
+  <label>Bezahlt über<input name="payment_via" value="{{ a.payment_via or '' }}" placeholder="Hausbank, Karte …"></label>
+  <label>Steuer<select name="tax_kind"><option value="">— offen —</option>{% for k, v in TAX_KINDS.items() %}<option value="{{ k }}" {{ 'selected' if a.tax_kind == k }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Status<select name="status"><option value="aktiv" {{ 'selected' if a.status != 'gekuendigt' }}>aktiv</option><option value="gekuendigt" {{ 'selected' if a.status == 'gekuendigt' }}>gekündigt</option></select></label>
+  <label>Läuft bis (bei Kündigung)<input type="date" name="ends_on" value="{{ a.ends_on or '' }}"></label>
+  <label class="wide">Kündigung (Frist, Link)<input name="cancel_info" value="{{ a.cancel_info or '' }}"></label>
+  <label class="wide">Notiz<input name="note" value="{{ a.note or '' }}"></label>
+  <div class="actions"><button>{{ "Speichern" if a.id else "Anlegen" }}</button></div>

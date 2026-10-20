@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Umsatzsteuer{% endblock %}
+{% block main %}
+<h1>Umsatzsteuer {{ j.year }}</h1>
+<form method="get" class="filters"><label>Jahr<select name="jahr" onchange="this.form.submit()">
+  {% for y in years %}<option {{ 'selected' if y == j.year }}>{{ y }}</option>{% endfor %}</select></label></form>
+<div class="cards">
+  <div class="card"><span>Einbehaltene Umsatzsteuer</span><b>{{ j.einbehalten|eur }}</b><small>gehört dem Finanzamt, ohne Abzug</small></div>
+  <div class="card"><span>Gezahlte Vorsteuer</span><b>{{ j.vorsteuer|eur }}</b><small>aus Rechnungen an dich</small></div>
+  <div class="card"><span>Voraussichtliche Zahllast</span><b>{{ j.zahllast|eur }}</b><small>{{ "Nachzahlung" if j.zahllast >= 0 else "Erstattung" }}, einbehalten minus Vorsteuer</small></div>
+  <div class="card"><span>Schon an das Finanzamt gezahlt</span><b>{{ j.gezahlt|eur }}</b><small>Zahlungen mit Datum {{ j.year }}</small></div>
+  <div class="card"><span>Noch offen</span><b>{{ j.offen|eur }}</b><small>{{ "auf dem Konto lassen" if j.offen >= 0 else "kommt voraussichtlich zurück" }}</small></div>
+</div>
+{% if j.reverse_charge %}<p class="muted">Reverse Charge {{ j.reverse_charge|eur }}: schuldest du und ziehst sie gleich wieder ab, kostet also nichts.</p>{% endif %}
+<h2>Je Zeitraum</h2>
+<table class="list"><tr><th>Zeitraum</th><th class="num">Einbehalten</th><th class="num">Vorsteuer</th><th class="num">Zahllast</th><th>Frist</th><th>Abgeschlossen</th></tr>
+{% for r in j.zeitraeume %}<tr class="{{ 'muted' if not (r.einbehalten or r.vorsteuer) }}"><td><a href="{{ M }}/auswertungen?zeitraum={{ r.period }}&jahr={{ j.year }}">{{ r.period }}</a></td>
+<td class="num">{{ r.einbehalten|eur }}</td><td class="num">{{ r.vorsteuer|eur }}</td><td class="num">{{ r.zahllast|eur }}</td>
+<td>{{ r.deadline|date_de }}</td><td>{{ "ja" if r.gesperrt else "" }}</td></tr>{% endfor %}
+<tr><td><b>Summe</b></td><td class="num"><b>{{ j.einbehalten|eur }}</b></td><td class="num"><b>{{ j.vorsteuer|eur }}</b></td><td class="num"><b>{{ j.zahllast|eur }}</b></td><td></td><td></td></tr></table>
+<p class="muted">Prognose: ELSTER rundet die Bemessungsgrundlagen auf volle Euro, die echte Zahllast weicht um Cent ab. Eine Zahlung an das Finanzamt zählt nach ihrem Datum, eine Zahlung im Januar für den Dezember also ins neue Jahr. Zahlungen erfasst du unter <a href="{{ M }}/auswertungen">Auswertungen</a>.</p>
+{% endblock %}

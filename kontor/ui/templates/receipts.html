@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Belege{% endblock %}
+{% block main %}
+<h1>Belege</h1>
+<p><a class="button {{ '' if status == 'eingang' else 'secondary' }}" href="{{ M }}/belege?status=eingang">Eingang ({{ inbox_count }})</a>
+<a class="button {{ '' if status == 'geprueft' else 'secondary' }}" href="{{ M }}/belege?status=geprueft">Geprüft</a></p>
+<form method="post" action="{{ M }}/belege/upload" enctype="multipart/form-data" class="grid dropzone">
+  <label class="wide">Belege hochladen: Dateien irgendwo ins Fenster ziehen oder hier auswählen (PDF, Foto, XML; mehrere möglich)<input type="file" name="dateien" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.xml"></label>
+  <div class="actions"><button>Hochladen</button></div></form>
+<details><summary>Ausgabe ohne Rechnung erfassen (Eigenbeleg, z. B. vom Privatkonto)</summary>
+<form method="post" action="{{ M }}/belege/eigenbeleg" class="grid">
+  <p class="wide muted">Nur wenn es wirklich keine Rechnung gibt; Google, Skool und Co. stellen meist eine aus, die besser hochladen. Ohne Rechnung kein Vorsteuerabzug.</p>
+  <label>Datum<input type="date" name="receipt_date" required></label>
+  <label>Empfänger<input name="supplier" required></label>
+  <label>Betrag<input name="gross" inputmode="decimal" required></label>
+  <label>Steuer<select name="tax_kind"><option value="ohne_vorsteuer">ohne Vorsteuer</option><option value="rc_eu">Reverse Charge EU</option><option value="rc_drittland">Reverse Charge Drittland</option></select></label>
+  <label>Kategorie<select name="category_id"><option value="">— wählen —</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+  <label>Bezahlt am<input type="date" name="paid_on"></label>
+  <label>Bezahlt über<input name="paid_via" value="Privatkonto"></label>
+  <label class="wide">Wofür<input name="description" required></label>
+  <label class="wide">Warum kein Originalbeleg<input name="reason" required></label>
+  <div class="actions"><button>Eigenbeleg anlegen</button></div></form></details>
+<form method="post" action="{{ M }}/belege/abholen"><button class="secondary">Telegram-Eingang abholen</button></form>
+<table class="list"><tr><th>Datum</th><th>Lieferant</th><th>Kategorie</th><th>Steuer</th><th class="num">Brutto</th><th>Herkunft</th></tr>
+{% for r in items %}<tr><td><a href="{{ M }}/belege/{{ r.id }}">{{ r.receipt_date|date_de or "ohne Datum" }}</a></td><td>{{ r.supplier or r.original_name }}</td>
+<td>{{ r.category or "" }}</td><td>{{ TAX_KINDS[r.tax_kind] if r.tax_kind else ("gemischt" if r.status == "geprueft" else "") }}</td><td class="num">{{ r.gross|eur if r.gross is not none else "" }}</td><td>{{ r.origin }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Keine Belege.</td></tr>{% endfor %}</table>
+{% endblock %}

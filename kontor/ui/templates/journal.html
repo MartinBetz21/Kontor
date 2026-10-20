@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% block title %}Journal & Bilanz {{ year }}{% endblock %}
+{% block main %}
+<h1>Journal &amp; Bilanz {{ year }}</h1>
+<form method="get" class="filters"><label>Jahr<input name="jahr" value="{{ year }}" inputmode="numeric" style="width:6em" onchange="this.form.submit()"></label></form>
+<p class="muted">Gespeichert: {{ counts.get("eroeffnung", 0) }} Eröffnung · {{ counts.get("manuell", 0) }} von Hand · {{ counts.get("import", 0) }} aus Lexware (Gegenprobe).
+  Alles Übrige leitet Kontor laufend aus Rechnungen, Zahlungen und Bankzuordnungen ab (Spec 18.7a; beim Sperren festgeschrieben).{% if locked %} <b>Gesperrt</b> seit {{ locked.locked_at[:10]|date_de }}: {{ locked.note }}{% endif %}</p>
+{% if problem %}<div class="error">{{ problem }}</div>{% endif %}
+
+<h2>Auffälligkeiten <span class="muted">· {{ findings|length }}</span></h2>
+{% for f in findings %}<details class="warn"><summary>{{ f.text }}</summary>
+  <table class="list"><tr><th>Datum</th><th>Konto</th><th>Gegenkonto</th><th>Text</th><th>Beleg</th><th class="num">Betrag</th></tr>
+  {% for b in f.buchungen %}<tr><td>{{ b.date|date_de }}</td><td><a href="{{ M }}/journal/konto/{{ b.account }}?jahr={{ year }}">{{ b.account }}</a></td><td>{{ b.contra }}</td><td>{{ b.text }}</td><td>{{ b.beleg }}</td><td class="num">{{ b.amount|eur }}</td></tr>{% endfor %}</table>
+</details>{% else %}<p class="muted">Keine. Verrechnungskonten stehen auf null, keine bekannte Falle gefunden.</p>{% endfor %}
+
+{% if r %}{% set p = r.positionen %}
+<h2>Bilanz zum {{ r.stichtag|date_de }} <span class="muted">· vorläufig</span></h2>
+<div class="grid2">
+<table class="list"><tr><th colspan="2">Aktiva</th></tr>
+  <tr><td>Forderungen aus Lieferungen und Leistungen</td><td class="num">{{ p.ford|eur }}</td></tr>
+  <tr><td>Sonstige Vermögensgegenstände</td><td class="num">{{ p.sonstVG|eur }}</td></tr>
+  <tr><td>Kassenbestand, Guthaben bei Kreditinstituten</td><td class="num">{{ p.bank|eur }}</td></tr>
+  <tr><td><b>Summe Aktiva</b></td><td class="num"><b>{{ p.aktiva|eur }}</b></td></tr></table>
+<table class="list"><tr><th colspan="2">Passiva</th></tr>
+  <tr><td>Gezeichnetes Kapital ./. nicht eingeforderte Einlage</td><td class="num">{{ (p.gez - p.ausst)|eur }}</td></tr>
+  <tr><td>Gewinn-/Verlustvortrag</td><td class="num">{{ p.vv|eur }}</td></tr>
+  <tr><td>Jahresergebnis</td><td class="num">{{ p.erg|eur }}</td></tr>
+  <tr><td><b>Eigenkapital</b></td><td class="num"><b>{{ p.ek|eur }}</b></td></tr>
+  <tr><td>Rückstellungen</td><td class="num">{{ p.rueck|eur }}</td></tr>
+  <tr><td>Verbindlichkeiten</td><td class="num">{{ p.verb|eur }}</td></tr>
+  <tr><td><b>Summe Passiva</b></td><td class="num"><b>{{ p.passiva|eur }}</b></td></tr></table>
+</div>
+<h2>GuV {{ year }} <span class="muted">· Ergebnis {{ p.erg|eur }}</span></h2>
+<table class="list"><tr><th>Konto</th><th>Bezeichnung</th><th class="num">Ertrag (+) / Aufwand (−)</th></tr>
+{% for g in r.guv %}<tr><td><a href="{{ M }}/journal/konto/{{ g.konto }}?jahr={{ year }}">{{ g.konto }}</a></td><td>{{ g.name }}</td><td class="num">{{ g.betrag|eur }}</td></tr>{% endfor %}</table>
+<details><summary>Bestandskonten</summary><table class="list">
+{% for b in r.bestand %}<tr><td><a href="{{ M }}/journal/konto/{{ b.konto }}?jahr={{ year }}">{{ b.konto }}</a></td><td>{{ b.name }}</td><td class="num">{{ b.saldo|eur }}</td></tr>{% endfor %}
+<tr><td></td><td>Umsatzsteuer saldiert (3806, 3816, 3841, 1401, 1406)</td><td class="num">{{ r.ust_saldo|eur }}</td></tr></table></details>
+{% endif %}
+
+<h2>Abschluss- und Korrekturbuchungen</h2>
+<table class="list"><tr><th>Kennung</th><th>Datum</th><th>Konto</th><th>Begründung</th><th class="num">Betrag</th></tr>
+{% for m in manual %}<tr><td>{{ m.ref }}</td><td>{{ m.date|date_de }}</td><td>{{ m.account }} {{ names.get(m.account, "") }}</td><td>{{ m.text }}</td><td class="num">{{ m.amount|eur }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">keine (anlegen: <code>kontor journal buchen --json</code>)</td></tr>{% endfor %}</table>
+
+{% if not locked %}<h2>Jahr sperren</h2>
+<form method="post" action="{{ M }}/journal/sperren" class="grid"><input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="jahr" value="{{ year }}">
+  <label class="wide">Vermerk<input name="vermerk" placeholder="Abschluss {{ year }} aufgestellt am …"></label>
+  <div class="actions"><button>{{ year }} sperren</button></div></form>{% endif %}
+{% endblock %}

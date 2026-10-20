@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}{{ c.company or c.contact }}{% endblock %}
+{% block main %}
+<h1>{{ c.company or c.contact }}</h1>
+{% include "_customer_form.html" %}
+<h2>Dokumente</h2>
+<table class="list"><tr><th>Nummer</th><th>Art</th><th>Datum</th><th>Status</th><th class="num">Brutto</th></tr>
+{% for d in docs %}<tr><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ d.number or "Entwurf" }}</a></td><td>{{ KIND_LABELS[d.kind] }}</td><td>{{ d.doc_date|date_de }}</td><td>{{ STATUS_LABELS[d.status] }}</td><td class="num">{{ d.gross|eur }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Noch keine Dokumente.</td></tr>{% endfor %}</table>
+<p><a class="button" href="{{ M }}/dokumente/neu?art=angebot&kunde={{ c.id }}">Neues Angebot</a> <a class="button" href="{{ M }}/dokumente/neu?art=rechnung&kunde={{ c.id }}">Neue Rechnung</a></p>
+{% endblock %}

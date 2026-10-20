@@ -1,0 +1,16 @@
+Kontor
+
+Kontor was originally built by Martin Betz (AI Traction, https://ai-traction.de,
+and UTXO Solutions GmbH) to keep the books of his own companies. It is shared
+as-is for anyone who wants to use it for their own bookkeeping.
+
+AI Traction is not a publisher or vendor of tax or bookkeeping software and
+offers no bookkeeping or tax services to others. Kontor is not tax, legal or
+accounting advice. There is no support, no service and no warranty.
+
+Terms of use: TERMS.md. Disclaimer: DISCLAIMER.md.
+
+Bundled third-party files and their licences are listed in
+THIRD_PARTY_NOTICES.md.
+
+Licence: Apache License 2.0 (see LICENSE).

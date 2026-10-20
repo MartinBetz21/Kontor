@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Prüfung{% endblock %}
+{% block main %}<h1>Integrität</h1>
+{% if problems %}<div class="error"><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>
+{% else %}<div class="note">Alles in Ordnung: Protokollkette, Archiv-Prüfsummen und Nummernkreise stimmen.</div>{% endif %}{% endblock %}

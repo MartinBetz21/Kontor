@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% block title %}Auswertungen{% endblock %}
+{% block main %}
+<h1>Auswertungen</h1>
+<form method="get" class="filters"><label>Voranmeldung<select name="zeitraum" onchange="this.form.submit()">
+  {% for p in periods %}<option {{ 'selected' if p == spec }}>{{ p }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="jahr" value="{{ year }}"></form>
+<h2>Umsatzsteuer-Voranmeldung {{ u.period }} <span class="muted">· Frist {{ u.deadline|date_de }}</span></h2>
+<p class="muted">So in Mein ELSTER eintragen. Bemessungsgrundlagen in vollen Euro, Steuer in Euro und Cent.</p>
+<table class="list"><tr><th>Kennzahl</th><th>Bedeutung</th><th class="num">Bemessungsgrundlage</th><th class="num">Steuer</th></tr>
+{% for kz, f in u.fields.items() %}<tr class="{{ 'muted' if not (f.basis or f.tax) }}"><td><b>{{ kz }}</b></td><td>{{ f.label }}</td>
+<td class="num">{{ (f.basis ~ " €") if f.basis is not none else "" }}</td><td class="num">{{ f.tax|eur if f.tax is not none else "" }}</td></tr>{% endfor %}</table>
+<details><summary>Grundlagen anzeigen</summary>
+  <h3>Einnahmen (Zahlungseingang im Zeitraum)</h3><ul>{% for e in u.details.einnahmen %}<li>{{ e.pay_date|date_de }} · {{ e.number }} · {{ e.amount|eur }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
+  <h3>Vorsteuer (Rechnungsdatum im Zeitraum)</h3><ul>{% for v in u.details.vorsteuer %}<li>{{ v.receipt_date|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.supplier }}</a> · Steuer {{ v.tax|eur }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
+  <h3>Reverse Charge (Belegdatum im Zeitraum)</h3><ul>{% for v in u.details.reverse_charge %}<li>{{ v.receipt_date|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.supplier }}</a> · netto {{ v.net|eur }} · {{ TAX_KINDS[v.tax_kind] }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
+  <p class="muted">Vereinnahmt exakt: 19 % netto {{ u.exact["19"].net|eur }}, Steuer {{ u.exact["19"].tax|eur }}. ELSTER rechnet die Steuer aus der abgerundeten Bemessungsgrundlage neu.</p>
+</details>
+<h2>Zahlung an das Finanzamt erfassen</h2>
+<form method="post" action="{{ M }}/auswertungen/ust-zahlung" class="grid"><label>Datum<input type="date" name="datum"></label>
+  <label>Betrag (negativ = gezahlt, positiv = Erstattung)<input name="betrag" placeholder="-190,00"></label><label>Notiz<input name="notiz" placeholder="UStVA {{ u.period }}"></label>
+  <div class="actions"><button>Erfassen</button></div></form>
+<h2>EÜR {{ e.year }} <span class="muted">· vorläufig</span></h2>
+<table class="list"><tr><td>Einnahmen netto</td><td class="num">{{ e.einnahmen_netto|eur }}</td></tr>
+<tr><td>Vereinnahmte Umsatzsteuer</td><td class="num">{{ e.ust_vereinnahmt|eur }}</td></tr>
+<tr><td>Erstattete Umsatzsteuer</td><td class="num">{{ e.ust_erstattet|eur }}</td></tr>
+{% for a in e.ausgaben %}<tr><td>Ausgaben · {{ a.category }}</td><td class="num">-{{ a.net|eur }}</td></tr>{% endfor %}
+<tr><td>Gezahlte Vorsteuer</td><td class="num">-{{ e.vorsteuer|eur }}</td></tr>
+<tr><td>An das Finanzamt gezahlte Umsatzsteuer</td><td class="num">-{{ e.ust_an_fa|eur }}</td></tr>
+<tr><td><b>Gewinn</b></td><td class="num"><b>{{ e.gewinn|eur }}</b></td></tr></table>
+<p class="muted">Reverse Charge ist zahlungsneutral und fehlt hier. Zeilen der Anlage EÜR vor dem Jahresabschluss zuordnen.</p>
+<p><a class="button secondary" href="{{ M }}/export/journal/{{ e.year }}.csv">Journal {{ e.year }} als CSV</a></p>
+<h2>Monatsabschluss</h2>
+<p class="muted">Nach Abgabe der Voranmeldung den Monat sperren. Danach lassen sich Zahlungen und Belege dieses Monats nicht mehr ändern.</p>
+<ul>{% for l in locks %}<li>{{ l.month }} gesperrt am {{ l.locked_at[:10]|date_de }} {{ l.note }}</li>{% else %}<li class="muted">Noch kein Monat gesperrt.</li>{% endfor %}</ul>
+<form method="post" action="{{ M }}/auswertungen/sperren" class="grid" data-ask="Monat sperren?"><input type="hidden" name="confirm" value="{{ confirm }}">
+  <label>Monat<input name="monat" placeholder="2026-10"></label><label>Notiz<input name="notiz" placeholder="UStVA abgegeben am …"></label>
+  <div class="actions"><button>Monat abschließen</button></div></form>
+<details><summary>Monat wieder öffnen</summary>
+<form method="post" action="{{ M }}/auswertungen/entsperren" class="grid" data-ask="Monat wieder öffnen?"><input type="hidden" name="confirm" value="{{ confirm }}">
+  <label>Monat<input name="monat"></label><label>Begründung<input name="begruendung" required></label>
+  <div class="actions"><button class="danger">Entsperren</button></div></form></details>
+{% endblock %}

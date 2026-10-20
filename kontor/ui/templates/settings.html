@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% block title %}Einstellungen{% endblock %}
+{% block main %}
+<h1>Einstellungen</h1>
+<form method="post" action="{{ M }}/einstellungen" enctype="multipart/form-data" class="grid">
+  <h2 class="wide">Unternehmen</h2>
+  <label>Name<input name="name" value="{{ s.name }}"></label>
+  <label>Geschäftsbezeichnung<input name="trade_name" value="{{ s.trade_name }}"></label>
+  <label>Straße<input name="street" value="{{ s.street }}"></label>
+  <label>PLZ<input name="postcode" value="{{ s.postcode }}"></label>
+  <label>Ort<input name="city" value="{{ s.city }}"></label>
+  <label>Land<input name="country" value="{{ s.country }}" maxlength="2"></label>
+  <label>E-Mail<input name="email" value="{{ s.email }}"></label>
+  <label>Telefon<input name="phone" value="{{ s.phone }}"></label>
+  <h2 class="wide">Steuer</h2>
+  <label>Steuernummer<input name="tax_number" value="{{ s.tax_number }}" placeholder="kommt vom Finanzamt"></label>
+  <label><span><input type="checkbox" name="tax_number_pending" value="1" {{ 'checked' if s.tax_number_pending }}> Steuernummer wird nachgeliefert</span><small class="muted">Rechnungen gehen dann ohne Nummer und ohne E-Rechnungs-Datei raus (§ 14 UStG: unvollständig, später berichtigen).</small></label>
+  <label>USt-IdNr.<input name="vat_id" value="{{ s.vat_id }}"></label>
+  <label>Voranmeldung<select name="ustva_period"><option value="monat" {{ 'selected' if s.ustva_period == 'monat' }}>monatlich</option><option value="quartal" {{ 'selected' if s.ustva_period == 'quartal' }}>vierteljährlich</option><option value="jahr" {{ 'selected' if s.ustva_period == 'jahr' }}>jährlich (befreit)</option></select></label>
+  <label>Sitz (nur Gesellschaften)<input name="seat" value="{{ s.seat }}"></label>
+  <label>Registergericht<input name="register_court" value="{{ s.register_court }}" placeholder="Amtsgericht …"></label>
+  <label>Handelsregisternummer<input name="register_number" value="{{ s.register_number }}" placeholder="HRB …"></label>
+  <label>Geschäftsführer<input name="managing_directors" value="{{ s.managing_directors }}"></label>
+  {% if profil.e_bilanz == "ja" or profil.ustva_eric == "ja" %}<h2 class="wide">ELSTER</h2>
+  <label>Bundesfinanzamtsnummer<input name="finanzamt_nr" value="{{ s.finanzamt_nr }}" placeholder="4 Ziffern, z. B. 5214" inputmode="numeric"></label>
+  <label>Hersteller-ID (eigene, von ELSTER)<input name="elster_hersteller_id" value="{{ s.elster_hersteller_id }}" placeholder="kommt vom Landesamt"></label>
+  <label class="wide">ERiC-Ordner<input name="eric_pfad" value="{{ s.eric_pfad }}" placeholder="…/ERiC-43.5.4.0/Darwin-universal"></label>
+  <label class="wide">ELSTER-Zertifikat (.pfx)<input name="elster_zertifikat" value="{{ s.elster_zertifikat }}" placeholder="Pfad zur Datei; die PIN wird beim Senden abgefragt"></label>{% endif %}
+  <h2 class="wide">Bank</h2>
+  <label>Bank<input name="bank_name" value="{{ s.bank_name }}"></label>
+  <label>IBAN<input name="iban" value="{{ s.iban }}"></label>
+  <label>BIC<input name="bic" value="{{ s.bic }}"></label>
+  <h2 class="wide">Dokumente</h2>
+  <label>Zahlungsziel (Tage)<input name="payment_days" value="{{ s.payment_days }}" inputmode="numeric"></label>
+  <label class="wide">Zahlungshinweis auf Rechnungen (Vorlage; Platzhalter {betrag}, {faellig_am}, {iban})<input name="payment_note_template" value="{{ s.payment_note_template }}"></label>
+  <label>Angebote gültig (Tage)<input name="offer_valid_days" value="{{ s.offer_valid_days }}" inputmode="numeric"></label>
+  <label>Logo (SVG/PNG){% if s.logo_path %} · aktuell: {{ s.logo_path }}{% endif %}<input type="file" name="logo" accept=".svg,.png,.jpg,.jpeg"></label>
+  <div class="actions"><button>Speichern</button></div>
+</form>
+<p><a href="{{ M }}/protokoll">Protokoll</a> · <a href="{{ M }}/pruefen">Integrität prüfen</a></p>
+{% endblock %}

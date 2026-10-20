@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Eigenbeleg</title><link rel="stylesheet" href="{{ css_uri }}"></head><body>
+<div class="top"><span></span><div class="sender">{{ seller.name }}{% if seller.trade_name %} · {{ seller.trade_name }}{% endif %}<br>{{ seller.street }}<br>{{ seller.postcode }} {{ seller.city }}</div></div>
+<h1>Eigenbeleg</h1>
+<p class="subject">Ersatz für eine fehlende Rechnung, erstellt am {{ created|date_de }}</p>
+<dl class="cond">
+  <dt>Datum der Ausgabe</dt><dd>{{ d.receipt_date|date_de }}</dd>
+  <dt>Empfänger</dt><dd>{{ d.supplier }}</dd>
+  <dt>Wofür</dt><dd>{{ d.description }}</dd>
+  <dt>Betrag</dt><dd>{{ d.gross_cents|eur }}</dd>
+  <dt>Steuer</dt><dd>{{ tax_label }}</dd>
+  <dt>Bezahlt am</dt><dd>{{ d.paid_on|date_de if d.paid_on else "offen" }}</dd>
+  <dt>Bezahlt über</dt><dd>{{ d.paid_via or "—" }}</dd>
+  <dt>Warum kein Originalbeleg</dt><dd>{{ d.reason }}</dd>
+</dl>
+<div class="closing"><p>Ich bestätige, dass die Ausgabe betrieblich veranlasst war und die Angaben richtig sind.</p>
+<p>{{ seller.name }}</p></div>
+</body></html>

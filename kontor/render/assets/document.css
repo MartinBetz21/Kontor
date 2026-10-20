@@ -1,0 +1,39 @@
+@font-face { font-family: "Archivo"; font-weight: 400; src: url(fonts/archivo-400.ttf); }
+@font-face { font-family: "Archivo"; font-weight: 600; src: url(fonts/archivo-600.ttf); }
+@page { size: A4; margin: 16mm 20mm 18mm;
+  @bottom-right { content: "Seite " counter(page) " von " counter(pages); font: 7.5pt "Archivo"; color: #777; } }
+* { box-sizing: border-box; }
+body { margin: 0; color: #1a1a1a; font: 400 10pt/1.5 "Archivo", sans-serif; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10mm; }
+.top img { height: 11mm; width: auto; image-rendering: crisp-edges; }   /* PDF/A verbietet /Interpolate (ISO 19005-3, 6.2.8) */
+.sender { text-align: right; font-size: 8.5pt; color: #555; line-height: 1.45; }
+.address { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 9mm; }
+.address > div { flex: 1; }
+.address .small { font-size: 7.5pt; color: #777; border-bottom: 1px solid #ccc; padding-bottom: 1mm; margin-bottom: 2mm; display: inline-block; }
+.meta { margin: 0; flex: none; width: 68mm; display: grid; grid-template-columns: auto 1fr; gap: 1mm 6mm; font-size: 9.5pt; align-self: flex-end; }
+.meta dt { white-space: nowrap; }
+.meta dt { color: #666; } .meta dd { margin: 0; text-align: right; }
+h1 { font-size: 14pt; font-weight: 600; margin: 0 0 1mm; }
+.subject { margin: 0 0 6mm; color: #444; }
+.text p { margin: 0 0 3mm; }
+table { width: 100%; border-collapse: collapse; margin: 5mm 0 3mm; font-size: 9.5pt; }
+th { text-align: left; font-weight: 600; font-size: 9.5pt; color: #444; border-bottom: 1.5px solid #1a1a1a; padding: 1.5mm 2mm; }
+td { padding: 2mm; border-bottom: 1px solid #ddd; vertical-align: top; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td b { font-weight: 600; display: block; } td .desc { color: #555; display: block; margin-top: .5mm; }
+tfoot { display: table-row-group; }   /* Summen nur einmal am Ende, nicht auf jeder Seite wiederholen */
+tfoot td { border: 0; padding: 1.2mm 2mm; }
+tfoot tr.net td { border-top: 1px solid #1a1a1a; font-weight: 600; }
+tfoot tr.gross td { border-top: 1.5px solid #1a1a1a; font-weight: 600; font-size: 10.5pt; }
+tr { break-inside: avoid; }
+.after { font-size: 9.5pt; color: #444; margin: 0 0 6mm; } .after p { margin: 0 0 1.5mm; }
+h2 { font-size: 10pt; font-weight: 600; margin: 6mm 0 2mm; }
+.cond { margin: 0; display: grid; grid-template-columns: 34mm 1fr; gap: 1.5mm 4mm; font-size: 9.5pt; }
+.cond dt { color: #555; } .cond dd { margin: 0; }
+.closing { margin-top: 8mm; } .closing p { margin: 0 0 3mm; }
+.foot { margin-top: 12mm; padding-top: 2.5mm; border-top: 1px solid #ccc; font-size: 7.5pt; line-height: 1.45; color: #777; display: flex; gap: 6mm; break-inside: avoid; }
+.foot-col { flex: 1; }
+.foot-col:last-child { flex: 1.5; }
+.foot-col .nowrap { white-space: nowrap; }
+.foot-col b { font-weight: 600; color: #555; }
+.watermark { position: fixed; top: 95mm; left: 0; right: 0; text-align: center; font-size: 90pt; font-weight: 600; color: #f0f0f0; transform: rotate(-30deg); z-index: -1; }

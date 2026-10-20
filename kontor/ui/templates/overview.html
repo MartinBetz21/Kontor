@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}Übersicht{% endblock %}
+{% block main %}
+<h1>Übersicht</h1>
+<div class="cards">
+  <div class="card"><span>Offene Rechnungen</span><b>{{ o.open_invoices|sum(attribute="open")|eur }}</b></div>
+  <div class="card"><span>Umsatzsteuer {{ o.period }} (vorläufig)</span><b>{{ o.estimate|eur }}</b><small>Frist {{ o.deadline|date_de }}</small></div>
+  {% if profil.gewinnermittlung == "bilanz" %}<div class="card"><span>Jahresergebnis (vorläufig, Journal)</span><b>{{ ergebnis|eur if ergebnis is not none else "–" }}</b>{% if ergebnis is none %}<small>Journal noch leer</small>{% endif %}</div>
+  {% else %}<div class="card"><span>Gewinn im Jahr (EÜR)</span><b>{{ o.profit_ytd|eur }}</b></div>{% endif %}
+  <div class="card"><span>Belege im Eingang</span><b><a href="{{ M }}/belege">{{ o.inbox }}</a></b></div>
+</div>
+{% if o.followups %}<h2>Nachfassen</h2>
+<table class="list">{% for f in o.followups %}<tr><td><a href="{{ M }}/dokumente/{{ f.document_id }}"><b>{{ f.number }}</b></a> · {{ (f.customer_json|fromjson).company or (f.customer_json|fromjson).contact }}</td>
+<td>{{ f.net|eur }} netto</td><td>{{ "abgelaufen am " ~ (f.valid_until|date_de) if f.reason == "abgelaufen" else f.reason }}</td>
+<td><form method="post" action="{{ M }}/aufgaben/{{ f.id }}/erledigt" class="inline"><input name="notiz" placeholder="Was ist passiert?"><button class="small">Erledigt</button></form></td></tr>{% endfor %}</table>
+<p class="muted">Angebot gerettet? In der Pipeline auf „Angenommen“ setzen und die Aufgabe erledigen.</p>{% endif %}
+<h2>Eingänge und Ausgänge {{ o.today[:4] }}</h2>
+{% set top = [1] + o.months|map(attribute="in")|list + o.months|map(attribute="out")|list %}{% set mx = top|max %}
+<div class="bars">{% for m in o.months %}<div class="bar"><div class="in" style="height:{{ (m['in'] * 100 / mx)|round(1) }}%" title="Eingang {{ m['in']|eur }}"></div><div class="out" style="height:{{ (m['out'] * 100 / mx)|round(1) }}%" title="Ausgang {{ m['out']|eur }}"></div><span>{{ m.month[5:] }}</span></div>{% endfor %}</div>
+<p class="legend"><i class="in"></i> Eingang <i class="out"></i> Ausgang</p>
+<h2>Offene Rechnungen</h2>
+<table class="list"><tr><th>Nummer</th><th>Kunde</th><th>Fällig</th><th class="num">Offen</th></tr>
+{% for d in o.open_invoices %}<tr class="{{ 'late' if d.overdue }}"><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ d.number }}</a></td><td>{{ d.customer.company or d.customer.contact }}</td><td>{{ d.due_date|date_de }}</td><td class="num">{{ d.open|eur }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Keine offenen Rechnungen.</td></tr>{% endfor %}</table>
+<h2>Entwürfe</h2>
+<table class="list"><tr><th>Art</th><th>Kunde</th><th>Betreff</th><th class="num">Brutto</th></tr>
+{% for d in o.drafts %}<tr><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ KIND_LABELS[d.kind] }}</a></td><td>{{ d.customer.company or d.customer.contact or "—" }}</td><td>{{ d.subject }}</td><td class="num">{{ d.gross|eur }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Keine Entwürfe.</td></tr>{% endfor %}</table>
+{% endblock %}

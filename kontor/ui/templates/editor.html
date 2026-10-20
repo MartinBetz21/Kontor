@@ -1,0 +1,69 @@
+{% extends "base.html" %}{% block title %}{{ KIND_LABELS[d.kind] }} · Entwurf{% endblock %}
+{% macro line_row(l) %}<tr>
+  <td><input name="line_title" value="{{ l.title }}" placeholder="Bezeichnung (tippen für Standardpositionen)" list="katalog" autocomplete="off"><textarea name="line_description" rows="2" placeholder="Was der Kunde davon hat">{{ l.description }}</textarea></td>
+  <td class="qty"><input name="line_quantity" value="{{ l.quantity|qty if l.quantity else '1' }}" inputmode="decimal"></td>
+  <td class="price"><input name="line_price" value="{{ l.unit_price|money_input if l.unit_price is not none else '' }}" inputmode="decimal" placeholder="0,00"></td>
+  <td class="tax"><select name="line_tax">{% for r in ("19","7","0") %}<option {{ 'selected' if r == (l.tax_rate or '19') }}>{{ r }}</option>{% endfor %}</select></td>
+  <td>{% if d.id and l.position %}<button type="button" class="secondary" title="als Standardposition speichern" onclick="this.form.position.value={{ l.position }}; this.form.action='{{ M }}/dokumente/{{ d.id }}/als-position'; this.form.submit()">☆</button>{% endif %}
+      <button type="button" class="secondary" data-remove-row>✕</button></td></tr>{% endmacro %}
+{% block main %}
+<h1>{{ KIND_LABELS[d.kind] }} <span class="muted">Entwurf</span></h1>
+{% for w in warnings %}<div class="warn">{{ w }}</div>{% endfor %}
+<form id="editor" method="post" action="{{ M ~ ('/dokumente/' ~ d.id if d.id else '/dokumente') }}"
+      hx-post="{{ M }}/dokumente/summen" hx-trigger="change, keyup changed delay:600ms from:.money" hx-target="#totals">
+  <input type="hidden" name="kind" value="{{ d.kind }}"><input type="hidden" name="confirm" value="{{ confirm }}">
+  <input type="hidden" name="position" value="">
+  <div class="grid-like">
+    <label>Kunde<select name="customer_id"><option value="">— wählen —</option>
+      {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if c.id == d.customer_id }}>{{ c.company or c.contact }}</option>{% endfor %}</select></label>
+    <label>Datum<input type="date" name="doc_date" value="{{ d.doc_date }}"></label>
+    <label>Steuerart<select name="tax_treatment">{% for k, v in TAX_TREATMENTS_OUT.items() %}<option value="{{ k }}" {{ 'selected' if (d.tax_treatment or 'inland') == k }}>{{ v }}</option>{% endfor %}</select></label>
+    {% if d.kind == "angebot" %}<label>Zahlungsmodus<select name="payment_mode"><option value="">— offen —</option>{% for k, v in modes.items() %}<option value="{{ k }}" {{ 'selected' if d.payment_mode == k }}>{{ v }}</option>{% endfor %}</select></label>{% endif %}
+    {% if d.kind == "angebot" %}<label>Gültig bis<input type="date" name="valid_until" value="{{ d.valid_until or '' }}"></label>
+    {% else %}
+      <label>Leistung<select name="service_mode"><option value="datum" {{ 'selected' if not d.service_from }}>Datum</option><option value="zeitraum" {{ 'selected' if d.service_from }}>Zeitraum</option></select></label>
+      <label>Leistungsdatum<input type="date" name="service_date" value="{{ d.service_date or '' }}"></label>
+      <label>Zeitraum von<input type="date" name="service_from" value="{{ d.service_from or '' }}"></label>
+      <label>bis<input type="date" name="service_to" value="{{ d.service_to or '' }}"></label>
+      <label>Fällig am (leer = Zahlungsziel)<input type="date" name="due_date" value="{{ d.due_date or '' }}"></label>
+    {% endif %}
+  </div>
+  {% if not d.customer_id %}<details><summary>Neuen Kunden anlegen</summary><div class="grid-like">
+    <label>Firma<input name="new_company"></label><label>Ansprechpartner<input name="new_contact"></label>
+    <label>Straße<input name="new_street"></label><label>PLZ<input name="new_postcode"></label>
+    <label>Ort<input name="new_city"></label><label>E-Mail<input name="new_email" type="email"></label></div>
+    <p class="muted">Wird beim Speichern angelegt, wenn oben kein Kunde gewählt ist.</p></details>{% endif %}
+  <label>Betreff<input name="subject" value="{{ d.subject }}"></label>
+  <label>Einleitung<textarea name="intro" rows="3">{{ d.intro }}</textarea></label>
+  <h2>Positionen</h2>
+  <input name="q" placeholder="Standardposition suchen …" hx-get="{{ M }}/katalog/suche" hx-trigger="keyup changed delay:300ms, focus" hx-target="#catalog-results" hx-swap="innerHTML" autocomplete="off">
+  <div id="catalog-results"></div>
+  <table class="list lines"><thead><tr><th>Leistung</th><th>Menge</th><th>Einzelpreis netto</th><th>USt</th><th></th></tr></thead>
+    <tbody id="lines">{% for l in d.lines %}{{ line_row(l) }}{% endfor %}</tbody></table>
+  <template id="line-template">{{ line_row({"title": "", "description": "", "quantity": "", "unit": "psch.", "unit_price": none, "tax_rate": "19", "position": none}) }}</template>
+  <button type="button" class="secondary" data-add-row="#lines" data-template="#line-template">+ Position</button>
+  <h2>Abzüge und Zuschläge</h2>
+  <table class="list lines"><tbody id="allowances">{% for a in d.allowances %}<tr><td><input name="al_label" value="{{ a.label }}"></td><td class="price"><input class="money" name="al_amount" value="{{ a.amount|money_input }}"></td><td class="tax"><select name="al_tax">{% for r in ("19","7","0") %}<option {{ 'selected' if r == a.tax_rate }}>{{ r }}</option>{% endfor %}</select></td><td><button type="button" class="secondary" data-remove-row>✕</button></td></tr>{% endfor %}</tbody></table>
+  <template id="al-template"><tr><td><input name="al_label" placeholder="z. B. Gutschrift Vorgespräch"></td><td class="price"><input class="money" name="al_amount" placeholder="-1.000,00"></td><td class="tax"><select name="al_tax"><option>19</option><option>7</option><option>0</option></select></td><td><button type="button" class="secondary" data-remove-row>✕</button></td></tr></template>
+  <button type="button" class="secondary" data-add-row="#allowances" data-template="#al-template">+ Abzug/Zuschlag</button>
+  <h2>Summen</h2><div id="totals">{% include "_totals.html" %}</div>
+  <label>Hinweise unter der Tabelle<textarea name="notes" rows="2">{{ d.notes }}</textarea></label>
+  <h2>Konditionen</h2>
+  <table class="list lines"><tbody id="conds">{% for k, v in d.conditions %}<tr><td><input name="cond_key" value="{{ k }}"></td><td><input name="cond_value" value="{{ v }}"></td><td><button type="button" class="secondary" data-remove-row>✕</button></td></tr>{% endfor %}</tbody></table>
+  <template id="cond-template"><tr><td><input name="cond_key" placeholder="z. B. Start"></td><td><input name="cond_value"></td><td><button type="button" class="secondary" data-remove-row>✕</button></td></tr></template>
+  <button type="button" class="secondary" data-add-row="#conds" data-template="#cond-template">+ Kondition</button>
+  {% if d.kind in ("rechnung", "abschlag", "schluss") %}<label>Zahlungshinweis (Platzhalter: {betrag}, {faellig_am}, {iban}; leer = keine Zahlungszeile)<textarea name="payment_note" rows="2">{{ d.payment_note if d.payment_note is not none else settings.payment_note_template }}</textarea></label>{% endif %}
+  <label>Schluss<textarea name="closing" rows="3">{{ d.closing }}</textarea></label>
+  <div class="actions sticky">
+    <button>Speichern</button>
+    {% if d.id %}
+      <a class="button secondary" href="{{ M }}/dokumente/{{ d.id }}/pdf" target="_blank">Vorschau (gespeicherter Stand)</a>
+      <button formaction="{{ M }}/dokumente/{{ d.id }}/abschliessen" data-ask="Abschließen vergibt die Nummer und macht das Dokument unveränderbar. Weiter?">Speichern und abschließen</button>
+      <button formaction="{{ M }}/dokumente/{{ d.id }}/loeschen" class="danger" data-ask="Entwurf löschen?">Löschen</button>
+    {% endif %}
+  </div>
+</form>
+<datalist id="katalog">{% for i in catalog %}<option value="{{ i.title }}">{% endfor %}</datalist>
+<script>window.KATALOG = {{ catalog|map(attribute="title")|list|zip_catalog(catalog)|tojson }};</script>
+<script>document.querySelectorAll("#lines [name=line_price], #lines [name=line_quantity]").forEach((i) => i.classList.add("money"));</script>
+{% endblock %}

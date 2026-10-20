@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Protokoll{% endblock %}
+{% block main %}<h1>Protokoll</h1><p class="muted">Die letzten 300 Einträge. Nur anhängend, mit Hash-Kette.</p>
+<table class="list small"><tr><th>Zeit</th><th>Wer</th><th>Aktion</th><th>Objekt</th><th>Inhalt</th></tr>
+{% for r in rows %}<tr><td>{{ r.at }}</td><td>{{ r.actor }}</td><td>{{ r.action }}</td><td>{{ r.object }} {{ r.object_id or "" }}</td><td><code>{{ r.payload[:160] }}</code></td></tr>{% endfor %}</table>{% endblock %}

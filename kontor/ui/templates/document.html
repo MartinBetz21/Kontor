@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% block title %}{{ d.number }}{% endblock %}
+{% block main %}
+<h1>{{ KIND_LABELS[d.kind] }} {{ d.number }} <span class="badge">{{ STATUS_LABELS[d.status] }}</span></h1>
+<p>{{ d.customer.company or d.customer.contact }} · {{ d.doc_date|date_de }} · Brutto {{ d.gross|eur }}
+{% if d.kind not in ("angebot",) %} · offen {{ d.open|eur }}{% endif %}
+{% if source %} · Bezug <a href="{{ M }}/dokumente/{{ source.id }}">{{ source.number }}</a>{% endif %}</p>
+<div class="split">
+  <iframe class="preview" src="{{ M }}/dokumente/{{ d.id }}/pdf" title="PDF"></iframe>
+  <div>
+    <form method="post" action="{{ M }}/dokumente/{{ d.id }}/speichern" class="inline save-pdf" data-folder="{{ d.customer.folder or '' }}">
+      <input type="hidden" name="ziel" value=""><button data-choose>PDF speichern unter …</button>
+      <a class="button secondary" href="{{ M }}/dokumente/{{ d.id }}/pdf" target="_blank">Ansehen</a></form>
+    <p class="muted small-text">Ziel: {{ d.customer.folder or "Downloads" }} (wird je Kunde gemerkt)</p>
+    {% if d.kind == "angebot" and d.status == "angenommen" %}
+      <form method="post" action="{{ M }}/dokumente/{{ d.id }}/erste-rechnung"><button>In Rechnung umwandeln</button>
+        <span class="muted">{{ {"50_50": "erst Abschlag über 50 %", "vorab": "Rechnung über alles, vorab", "danach": "Rechnung über alles"}.get(d.payment_mode, "Rechnung über alles") }}, als Entwurf</span></form>
+    {% endif %}
+    {% if d.kind == "angebot" %}
+      {% if d.status in ("abgeschlossen", "abgelehnt") %}<form method="post" action="{{ M }}/dokumente/{{ d.id }}/status"><input type="hidden" name="status" value="angenommen"><button>Angenommen</button></form>{% endif %}
+      {% if d.status == "abgeschlossen" %}<form method="post" action="{{ M }}/dokumente/{{ d.id }}/status"><input type="hidden" name="status" value="abgelehnt"><button class="secondary">Abgelehnt</button></form>{% endif %}
+      <details><summary>Andere Rechnungsart (voll, Abschlag, Schluss)</summary>
+      <form method="post" action="{{ M }}/dokumente/{{ d.id }}/rechnung" class="grid">
+        <label>Art<select name="art"><option value="voll">Rechnung über alles</option><option value="abschlag">Abschlagsrechnung</option><option value="schluss">Schlussrechnung</option></select></label>
+        <label>Abschlag in %<input name="prozent" placeholder="50" inputmode="decimal"></label>
+        <div class="actions"><button>Entwurf anlegen</button></div></form></details>
+    {% elif d.kind == "storno" %}
+      {% if d.open %}<h2>Erstattung erfassen</h2>
+      <form method="post" action="{{ M }}/dokumente/{{ d.id }}/zahlung" class="grid"><label>Datum<input type="date" name="datum" value="{{ today }}"></label>
+        <label>Betrag (negativ)<input name="betrag" value="{{ d.open|money_input }}"></label><label>Notiz<input name="notiz" value="Erstattung"></label>
+        <div class="actions"><button>Erfassen</button></div></form>{% endif %}
+    {% else %}
+      {% if d.status in ("abgeschlossen", "teilbezahlt") %}<h2>Zahlung erfassen</h2>
+      <form method="post" action="{{ M }}/dokumente/{{ d.id }}/zahlung" class="grid"><label>Datum<input type="date" name="datum" value="{{ today }}"></label>
+        <label>Betrag<input name="betrag" value="{{ d.open|money_input }}" inputmode="decimal"></label><label>Notiz<input name="notiz"></label>
+        <div class="actions"><button>Erfassen</button></div></form>{% endif %}
+      {% if d.status != "storniert" %}<form method="post" action="{{ M }}/dokumente/{{ d.id }}/stornieren" data-ask="Stornorechnung erzeugen? Das ist endgültig.">
+        <input type="hidden" name="confirm" value="{{ confirm }}"><button class="danger">Stornieren</button></form>{% endif %}
+    {% endif %}
+    {% if d.kind != "angebot" %}
+      {% if d.corrections %}<h2>Fassungen</h2><ul><li><a href="{{ M }}/dokumente/{{ d.id }}/pdf?version=0" target="_blank">Original vom {{ d.doc_date|date_de }}</a></li>
+        {% for c in d.corrections %}<li><a href="{{ M }}/dokumente/{{ d.id }}/pdf?version={{ c.version }}" target="_blank">Fassung {{ c.version }}</a> vom {{ c.created_at[:10]|date_de }}: {{ c.reason }}</li>{% endfor %}</ul>{% endif %}
+      <details><summary>Rechnung berichtigen (z. B. Steuernummer nachgeliefert)</summary>
+        <form method="post" action="{{ M }}/dokumente/{{ d.id }}/berichtigen" class="grid" data-ask="Berichtigte Fassung erzeugen? Nummer und Beträge bleiben gleich.">
+          <input type="hidden" name="confirm" value="{{ confirm }}">
+          <p class="wide muted">Übernimmt die aktuellen Angaben aus den Einstellungen (Steuernummer, Bank …). Nummer, Positionen, Beträge und Zahlungen bleiben gleich; das Original bleibt im Archiv.</p>
+          <label class="wide">Grund<input name="grund" value="Steuernummer ergänzt" required></label>
+          <div class="actions"><button>Berichtigte Fassung erzeugen</button></div></form></details>
+    {% endif %}
+    <form method="post" action="{{ M }}/dokumente/{{ d.id }}/kopie"><button class="secondary">Als Kopie neu</button></form>
+    {% if payments %}<h2>Zahlungen</h2><table class="list"><tr><th>Datum</th><th class="num">Betrag</th><th>Notiz</th></tr>
+      {% for p in payments %}<tr><td>{{ p.pay_date|date_de }}</td><td class="num">{{ p.amount|eur }}</td><td>{{ p.note }}</td>
+      <td><details><summary>löschen</summary><form method="post" action="{{ M }}/zahlungen/{{ p.id }}/loeschen" data-ask="Zahlung löschen?">
+        <input type="hidden" name="confirm" value="{{ confirm }}"><input name="begruendung" placeholder="Begründung" required>
+        <button class="danger">Löschen</button></form></details></td></tr>{% endfor %}</table>{% endif %}
+    {% if related %}<h2>Folgedokumente</h2><ul>{% for r in related %}<li><a href="{{ M }}/dokumente/{{ r.id }}">{{ KIND_LABELS[r.kind] }} {{ r.number or "Entwurf" }}</a> · {{ STATUS_LABELS[r.status] }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+</div>
+{% endblock %}
