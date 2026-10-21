@@ -1,0 +1,13 @@
+{
+  "_hint": "Instance file (register) of one installation. Copy to ~/.config/kontor/mandanten.json or point KONTOR_REGISTER at it. Relative 'daten' paths resolve against 'basis' (relative to this file). Data folders must live outside the code repo. 'einstellungen' and 'profil' are defaults for values the company database does not contain yet; a value stored in the database always wins. Keep secrets out of this file.",
+  "basis": ".",
+  "eingang": {"host": "my-receipt-server", "ordner": "belege-eingang"},
+  "einstellungen": {"foreign_providers": "ANTHROPIC,GOOGLE,OPENAI"},
+  "profil": {},
+  "mandanten": [
+    {"id": "meine-firma", "name": "Example Consulting", "daten": "daten/meine-firma", "farbe": "#2F4858",
+     "einstellungen": {"owner_names": "Erika Mustermann"}},
+    {"id": "gmbh", "name": "Example GmbH", "daten": "daten/gmbh", "farbe": "#7A4E2D",
+     "profil": {"gewinnermittlung": "bilanz", "kontenrahmen": "skr04"}}
+  ]
+}

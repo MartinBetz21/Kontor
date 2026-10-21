@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: System libraries for WeasyPrint
+        run: sudo apt-get update -q && sudo apt-get install -y -q libpango-1.0-0 libpangoft2-1.0-0
+      - name: Install
+        run: |
+          python -m pip install -q -r requirements.txt
+          python -m pip install -q -e .
+      - name: Tests
+        run: python -m pytest -q -p no:cacheprovider
+
+  check:
+    name: check (no real data, no secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Contribution check
+        run: python tools/check_contribution.py --all
+
+  dco:
+    name: dco (sign-off on every commit)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: DCO
+        run: python3 tools/check_dco.py "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

@@ -1,0 +1,44 @@
+# Code only. Books, receipts and credentials never belong in this repo.
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Third-party tools you download yourself (see README)
+tools/*.jar
+eric/
+ERiC-*/
+
+# Data and secrets
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.der
+*.jks
+*zertifikat*
+*Zertifikat*
+*certificate*
+.env
+.env.*
+*.log
+archiv/
+belege/
+eingang/
+abgaben/
+mandanten.json
+
+# Instance files and local tool settings
+kontor-instanz.json
+.claude/settings.local.json
+.DS_Store

@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}{{ "Angebote" if gruppe == "angebote" else "Rechnungen" }}{% endblock %}
+{% block main %}
+<h1>{{ "Angebote" if gruppe == "angebote" else "Rechnungen" }}</h1>
+<form method="get" class="filters"><input type="hidden" name="gruppe" value="{{ gruppe }}">
+  <select name="status" onchange="this.form.submit()"><option value="">alle Status</option>
+  {% for k, v in STATUS_LABELS.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v }}</option>{% endfor %}</select>
+  <input name="jahr" value="{{ jahr }}" placeholder="Jahr" size="6" inputmode="numeric">
+  <a class="button" href="{{ M }}/dokumente/neu?art={{ 'angebot' if gruppe == 'angebote' else 'rechnung' }}">Neu</a></form>
+<table class="list"><tr><th>Nummer</th><th>Art</th><th>Kunde</th><th>Datum</th><th>Status</th><th class="num">Brutto</th><th class="num">Offen</th><th></th></tr>
+{% for d in items %}<tr><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ d.number or "Entwurf" }}</a></td><td>{{ KIND_LABELS[d.kind] }}</td>
+<td>{{ d.customer.company or d.customer.contact or "—" }}</td><td>{{ d.doc_date|date_de }}</td><td>{{ STATUS_LABELS[d.status] }}</td>
+<td class="num">{{ d.gross|eur }}</td><td class="num">{{ d.open|eur if d.kind != "angebot" and d.status != "entwurf" else "" }}</td>
+<td>{% if d.status != "entwurf" %}<form method="post" action="{{ M }}/dokumente/{{ d.id }}/speichern" class="inline save-pdf" data-folder="{{ d.customer.folder or '' }}"><input type="hidden" name="ziel" value=""><button class="secondary small" data-choose title="Ordner wählen">PDF speichern …</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">Noch nichts da.</td></tr>{% endfor %}</table>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block title %}Angebote{% endblock %}
+{% block main %}
+<h1>Angebote</h1>
+<p><a class="button" href="{{ M }}/dokumente/neu?art=angebot">Neues Angebot</a> <a class="button secondary" href="{{ M }}/dokumente?gruppe=angebote">Als Liste</a></p>
+<div class="board">
+{% for lane, label in (("entwurf", "Entwurf"), ("verschickt", "Verschickt"), ("angenommen", "Angenommen"), ("abgelehnt", "Abgelehnt / abgelaufen")) %}
+  <section class="lane">
+    <h2>{{ label }} <small>{{ b[lane]|length }} · {{ b.sums[lane]|eur }}</small></h2>
+    {% for d in b[lane] %}<article class="card">
+      <a href="{{ M }}/dokumente/{{ d.id }}"><b>{{ d.number or "Entwurf" }}</b> · {{ d.customer.company or d.customer.contact or "—" }}</a>
+      <div class="muted">{{ d.subject }}</div>
+      <div>{{ d.net|eur }} netto{% if d.valid_until and lane == "verschickt" %} · gültig bis {{ d.valid_until|date_de }}{% endif %}</div>
+      {% if d.payment_mode %}<div class="muted">Zahlung: {{ modes[d.payment_mode] }}</div>{% endif %}
+      {% if lane == "verschickt" or lane == "abgelehnt" %}<div class="card-actions">
+        <form method="post" action="{{ M }}/dokumente/{{ d.id }}/status" class="inline"><input type="hidden" name="status" value="angenommen"><button class="small">Angenommen</button></form>
+        {% if lane == "verschickt" %}<form method="post" action="{{ M }}/dokumente/{{ d.id }}/status" class="inline"><input type="hidden" name="status" value="abgelehnt"><button class="small secondary">Abgelehnt</button></form>{% endif %}
+      </div>{% endif %}
+      {% if lane == "angenommen" %}<div class="card-actions">
+        <form method="post" action="{{ M }}/dokumente/{{ d.id }}/erste-rechnung" class="inline"><button class="small">In Rechnung umwandeln</button></form>
+        <a class="button small secondary" href="{{ M }}/serien?von={{ d.id }}">Serie anlegen</a>
+      </div>{% endif %}
+    </article>{% else %}<p class="muted">—</p>{% endfor %}
+  </section>
+{% endfor %}
+</div>
+{% endblock %}

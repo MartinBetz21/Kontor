@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Übersicht{% endblock %} · {{ mandant.name }} · Kontor</title>
+<link rel="icon" href="/static/kontor.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script><script src="/static/app.js" defer></script></head>
+<body data-base="{{ M }}" data-mandant="{{ mandant.name }}" style="--mandant: {{ mandant.color }}">
+<nav class="side">
+  <div class="brand"><img src="/static/kontor.svg" alt="">Kontor</div>
+  <div class="mandant">{{ mandant.name }}</div>
+  {% if mandanten|length > 1 %}<details class="mandanten"><summary>Mandant wechseln</summary>
+    {% for x in mandanten if x.id != mandant.id %}<a href="/m/{{ x.id }}/" style="--mandant: {{ x.color }}">{{ x.name }}</a>{% endfor %}
+  </details>{% endif %}
+  <a href="{{ M }}/" class="{{ 'on' if nav == 'home' }}">Übersicht</a>
+  <a href="{{ M }}/angebote" class="{{ 'on' if nav == 'angebote' }}">Angebote</a>
+  <a href="{{ M }}/dokumente?gruppe=rechnungen" class="{{ 'on' if nav == 'rechnungen' }}">Rechnungen</a>
+  <a href="{{ M }}/serien" class="{{ 'on' if nav == 'serien' }}">Serienrechnungen</a>
+  <a href="{{ M }}/belege" class="{{ 'on' if nav == 'belege' }}">Belege{% if inbox_count %} <span class="badge">{{ inbox_count }}</span>{% endif %}</a>
+  <a href="{{ M }}/abos" class="{{ 'on' if nav == 'abos' }}">Abos</a>
+  <a href="{{ M }}/kunden" class="{{ 'on' if nav == 'kunden' }}">Kunden</a>
+  <a href="{{ M }}/positionen" class="{{ 'on' if nav == 'positionen' }}">Positionen &amp; Texte</a>
+  {% if profil.bankimport %}<a href="{{ M }}/bank" class="{{ 'on' if nav == 'bank' }}">Bank</a>{% endif %}
+  {% if profil.gewinnermittlung == "bilanz" %}<a href="{{ M }}/journal" class="{{ 'on' if nav == 'journal' }}">Journal &amp; Bilanz</a>{% endif %}
+  <a href="{{ M }}/umsatzsteuer" class="{{ 'on' if nav == 'umsatzsteuer' }}">Umsatzsteuer</a>
+  <a href="{{ M }}/auswertungen" class="{{ 'on' if nav == 'auswertungen' }}">Auswertungen</a>
+  {% if profil.e_bilanz == "ja" %}<a href="{{ M }}/abgaben" class="{{ 'on' if nav == 'abgaben' }}">Abgaben</a>{% endif %}
+  <a href="{{ M }}/einstellungen" class="{{ 'on' if nav == 'einstellungen' }}">Einstellungen</a>
+</nav>
+<div id="drop-overlay"><div><b>Belege hier ablegen</b><small>PDF, Foto oder E-Rechnung · landen im Eingang</small><span class="busy-text">wird hochgeladen …</span></div></div>
+<main>
+  {% if hinweis %}<div class="note">{{ hinweis }}</div>{% endif %}
+  {% block main %}{% endblock %}
+</main>
+<footer class="terms muted">Kontor ist nur für die eigene Buchhaltung, keine Steuerberatung, ohne Gewähr. Bedingungen: TERMS.md und DISCLAIMER.md im Programmordner.</footer>
+</body></html>

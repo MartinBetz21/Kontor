@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Abos{% endblock %}
+{% block main %}
+<h1>Abos</h1>
+<div class="cards">
+  <div class="card"><span>Laufende Kosten pro Monat</span><b>{{ o.per_month|eur }}</b><small>Jahresabos auf den Monat umgerechnet</small></div>
+  <div class="card"><span>Pro Jahr</span><b>{{ o.per_year|eur }}</b></div>
+  <div class="card"><span>Abbuchungen in 30 Tagen</span><b>{{ o.upcoming|length }}</b></div>
+  <div class="card"><span>Betrag fehlt</span><b>{{ o.missing_amount|length }}</b></div>
+</div>
+<h2>Alle Abos</h2>
+<table class="list"><tr><th>Abo</th><th>Anbieter</th><th class="num">Betrag</th><th>Intervall</th><th class="num">pro Monat</th><th>Nächste Abbuchung</th><th>Bezahlt über</th><th>Steuer</th><th>Status</th></tr>
+{% for s in o["items"] %}<tr class="{{ 'muted' if s.status != 'aktiv' }}">
+<td><details><summary><b>{{ s.name }}</b></summary>
+  <form method="post" action="{{ M }}/abos/{{ s.id }}" class="grid">{% set a = s %}{% include "_subscription_form.html" %}</form></details></td>
+<td>{{ s.provider }}</td><td class="num">{{ s.amount|eur if s.amount is not none else "Betrag fehlt" }}</td><td>{{ intervals[s.interval] }}</td>
+<td class="num">{{ s.per_month|eur if s.status == "aktiv" and s.amount is not none else "" }}</td>
+<td>{{ s.next_display|date_de if s.next_display else ("bis " ~ (s.ends_on|date_de) if s.ends_on else "—") }}</td>
+<td>{{ s.payment_via }}</td><td>{{ TAX_KINDS[s.tax_kind] if s.tax_kind else "" }}</td><td>{{ "aktiv" if s.status == "aktiv" else "gekündigt" }}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">Noch keine Abos.</td></tr>{% endfor %}</table>
+<h2>Neues Abo</h2>
+<form method="post" action="{{ M }}/abos" class="grid">{% set a = {} %}{% include "_subscription_form.html" %}</form>
+{% endblock %}

@@ -1,0 +1,15 @@
+<form method="post" action="{{ M ~ ('/kunden/' ~ c.id if c.id else '/kunden') }}" class="grid">
+  <label>Firma<input name="company" value="{{ c.company or '' }}"></label>
+  <label>Ansprechpartner<input name="contact" value="{{ c.contact or '' }}"></label>
+  <label>Straße<input name="street" value="{{ c.street or '' }}"></label>
+  <label>PLZ<input name="postcode" value="{{ c.postcode or '' }}"></label>
+  <label>Ort<input name="city" value="{{ c.city or '' }}"></label>
+  <label>Land<input name="country" value="{{ c.country or 'DE' }}" maxlength="2"></label>
+  <label>E-Mail<input name="email" type="email" value="{{ c.email or '' }}"></label>
+  <label>USt-IdNr.<input name="vat_id" value="{{ c.vat_id or '' }}"></label>
+  <label>Leitweg-ID<input name="leitweg_id" value="{{ c.leitweg_id or '' }}"></label>
+  <label class="wide">Ablageordner für PDFs (z. B. Kundenordner)<input name="folder" value="{{ c.folder or '' }}" placeholder="~/Dokumente/Kunden/kunde"></label>
+  <label class="wide">Notiz<textarea name="note" rows="2">{{ c.note or '' }}</textarea></label>
+  {% if c.id %}<label><input type="checkbox" name="archived" value="1" {{ 'checked' if c.archived }}> archiviert</label>{% endif %}
+  <div class="actions"><button>{{ "Speichern" if c.id else "Anlegen" }}</button></div>
+</form>

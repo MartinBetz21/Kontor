@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% block title %}Positionen & Texte{% endblock %}
+{% block main %}
+<h1>Standardpositionen</h1>
+<p class="muted">Reihenfolge per Drag &amp; Drop am Griff ⠿ ändern; so erscheinen sie auch in den Vorschlägen.</p>
+<table class="list"><thead><tr><th></th><th>Bezeichnung</th><th class="num">Preis netto</th><th>USt</th><th></th></tr></thead><tbody id="catalog-rows">
+{% for i in items %}<tr class="{{ 'muted' if not i.active }}" draggable="true" data-item="{{ i.id }}"><td class="grip" title="ziehen">⠿</td><td><details><summary>{{ i.title }}</summary>
+  <form method="post" action="{{ M }}/positionen/{{ i.id }}" class="grid">
+    <label class="wide">Bezeichnung<input name="title" value="{{ i.title }}"></label>
+    <label class="wide">Beschreibung<textarea name="description" rows="3">{{ i.description }}</textarea></label>
+    <label>Preis netto<input name="unit_price" value="{{ i.unit_price|money_input }}" inputmode="decimal"></label>
+    <label>USt<select name="tax_rate">{% for r in ("19","7","0") %}<option {{ 'selected' if r == i.tax_rate }}>{{ r }}</option>{% endfor %}</select></label>
+    <label><input type="checkbox" name="active" value="1" {{ 'checked' if i.active }}> aktiv</label>
+    <div class="actions"><button>Speichern</button></div></form></details></td>
+  <td class="num">{{ i.unit_price|eur }}</td><td>{{ i.tax_rate }} %</td><td>{{ "inaktiv" if not i.active }}</td></tr>{% endfor %}
+</tbody></table>
+<h2>Neue Standardposition</h2>
+<form method="post" action="{{ M }}/positionen" class="grid">
+  <label class="wide">Bezeichnung<input name="title" required></label>
+  <label class="wide">Beschreibung (Ergebnis für den Kunden)<textarea name="description" rows="3"></textarea></label>
+  <label>Preis netto<input name="unit_price" inputmode="decimal" placeholder="750,00"></label>
+  <label>USt<select name="tax_rate"><option>19</option><option>7</option><option>0</option></select></label>
+  <div class="actions"><button>Anlegen</button></div>
+</form>
+<h1>Textvorlagen</h1>
+{% for t in templates_ %}<details><summary>{{ "Angebot" if t.kind == "angebot" else "Rechnung" }} · {{ t.slot }} · {{ t.title }}{% if t.is_default %} <span class="badge">Standard</span>{% endif %}</summary>
+  <form method="post" action="{{ M }}/texte/{{ t.id }}" class="grid"><label class="wide">Titel<input name="title" value="{{ t.title }}"></label>
+  <label class="wide">Text<textarea name="body" rows="4">{{ t.body }}</textarea></label>
+  <label><input type="checkbox" name="is_default" value="1" {{ 'checked' if t.is_default }}> Standard</label>
+  <div class="actions"><button>Speichern</button></div></form></details>{% endfor %}
+<h2>Neue Textvorlage</h2>
+<p class="muted">Platzhalter: {vorname}, {angebotsnummer}, {gueltig_bis}, {faellig_am}</p>
+<form method="post" action="{{ M }}/texte" class="grid">
+  <label>Für<select name="kind"><option value="angebot">Angebot</option><option value="rechnung">Rechnung</option></select></label>
+  <label>Stelle<select name="slot"><option value="einleitung">Einleitung</option><option value="schluss">Schluss</option></select></label>
+  <label class="wide">Titel<input name="title"></label>
+  <label class="wide">Text<textarea name="body" rows="4" required></textarea></label>
+  <label><input type="checkbox" name="is_default" value="1"> als Standard</label>
+  <div class="actions"><button>Anlegen</button></div>
+</form>
+{% endblock %}

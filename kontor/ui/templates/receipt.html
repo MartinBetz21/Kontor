@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}Beleg{% endblock %}
+{% block main %}
+<h1>Beleg {{ r.supplier or r.original_name }} <span class="badge">{{ "Eingang" if r.status == "eingang" else "Geprüft" }}</span></h1>
+{% if r.note %}<div class="warn">{{ r.note }}</div>{% endif %}
+<div class="split">
+  <div>{% if suffix in ("jpg", "jpeg", "png", "heic") %}<img src="{{ M }}/belege/{{ r.id }}/datei" alt="Beleg" style="max-width:100%;border:1px solid #ddd">
+       {% else %}<iframe class="preview" src="{{ M }}/belege/{{ r.id }}/datei" title="Beleg"></iframe>{% endif %}</div>
+  <form method="post" action="{{ M }}/belege/{{ r.id }}" class="grid">
+    <label>Belegdatum<input type="date" name="receipt_date" value="{{ r.receipt_date or '' }}"></label>
+    <label>Lieferant<input name="supplier" value="{{ r.supplier }}"></label>
+    <label>Belegnummer<input name="receipt_number" value="{{ r.receipt_number }}"></label>
+    <label>Brutto<input name="gross" value="{{ r.gross|money_input }}" inputmode="decimal"></label>
+    <label>Steuerart<select name="tax_kind"><option value="">{{ "gemischt (siehe unten)" if r.status == "geprueft" and not r.tax_kind else "— wählen —" }}</option>{% for k, v in TAX_KINDS.items() %}<option value="{{ k }}" {{ 'selected' if k == r.tax_kind }}>{{ v }}</option>{% endfor %}</select></label>
+    <details class="wide" {{ 'open' if parts }}><summary>Mehrere Steuersätze (z. B. Bewirtung: Essen 7 %, Getränke 19 %)</summary>
+      <p class="muted">Ausgefüllt ersetzt das „Brutto“ und „Steuerart“ oben. Brutto je Steuersatz eintragen.</p>
+      {% for i in range(3) %}{% set p = parts[i] if i < parts|length else none %}
+      <div class="grid-like"><label>Steuerart<select name="part_kind">{% for k, v in TAX_KINDS.items() %}<option value="{{ k }}" {{ 'selected' if p and k == p.tax_kind }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Brutto<input name="part_gross" value="{{ ((p.net if p.tax_kind.startswith('rc_') else p.net + p.tax)|money_input) if p else '' }}" inputmode="decimal"></label></div>{% endfor %}
+    </details>
+    <label>Kategorie<select name="category_id"><option value="">— wählen —</option>{% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if c.id == r.category_id }}>{{ c.name }}</option>{% endfor %}</select></label>
+    <label>Bezahlt am<input type="date" name="paid_on" value="{{ r.paid_on or '' }}"></label>
+    <label class="wide">Anlass der Bewirtung (nur bei Bewirtung, Pflicht)<input name="bewirtung_anlass" value="{{ r.bewirtung_anlass }}" placeholder="z. B. Projektbesprechung Bestellportal"></label>
+    <label class="wide">Bewirtete Personen (nur bei Bewirtung, Pflicht, mit Firma)<input name="bewirtung_teilnehmer" value="{{ r.bewirtung_teilnehmer }}" placeholder="z. B. Erika Mustermann; Max Beispiel (Beispiel Technik)"></label>
+    <label class="wide">Notiz (Begleittext aus Telegram landet hier)<textarea name="note" rows="2">{{ r.note }}</textarea></label>
+    {% if r.status == "geprueft" %}<p class="wide muted">Netto {{ r.net|eur }} · Steuer {{ r.tax|eur }} · Brutto {{ r.gross|eur }}</p>{% endif %}
+    <div class="actions"><button class="secondary">Speichern</button>
+      {% if r.status == "eingang" %}<button formaction="{{ M }}/belege/{{ r.id }}/bestaetigen">Bestätigen</button>{% endif %}
+      <button formaction="{{ M }}/belege/{{ r.id }}/loeschen" class="danger" data-ask="Beleg löschen?" name="confirm" value="{{ confirm }}">Löschen</button></div>
+  </form>
+</div>
+{% endblock %}

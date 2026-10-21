@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Konto {{ konto }}{% endblock %}
+{% block main %}
+<h1>Konto {{ konto }} <span class="muted">{{ name }} · {{ year }}</span></h1>
+<p><a href="{{ M }}/journal?jahr={{ year }}">← Journal &amp; Bilanz</a></p>
+<table class="list"><tr><th>Datum</th><th>Art</th><th>Gegenkonto</th><th>Text</th><th>Beleg</th><th class="num">Soll</th><th class="num">Haben</th><th class="num">Saldo</th></tr>
+{% for r in rows %}<tr><td>{{ r.date|date_de }}</td><td>{{ r.art }}{% if r.ref and r.art == "manuell" %} {{ r.ref }}{% endif %}</td><td>{{ r.contra }}</td><td>{{ r.text }}</td><td>{{ r.beleg }}</td>
+<td class="num">{{ r.amount|eur if r.amount > 0 else "" }}</td><td class="num">{{ (-r.amount)|eur if r.amount < 0 else "" }}</td><td class="num">{{ r.saldo|eur }}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">keine Buchungen</td></tr>{% endfor %}</table>
+{% endblock %}

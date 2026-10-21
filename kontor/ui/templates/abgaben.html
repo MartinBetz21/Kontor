@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Abgaben{% endblock %}
+{% block main %}
+<h1>Abgaben</h1>
+<h2>E-Bilanz <span class="muted">· Taxonomie {{ taxonomie }} · über ERiC</span></h2>
+{% if fehler %}<p class="error">{{ fehler }}</p>{% endif %}
+<table class="list"><tr><th>Jahr</th><th class="num">Bilanzsumme</th><th class="num">Eigenkapital</th><th class="num">Jahresergebnis</th><th class="num">Konten im Nachweis</th><th></th></tr>
+{% for k in jahre %}<tr><td><b>{{ k.jahr }}</b>{% if k.jahr >= heute_jahr %} <span class="muted">läuft noch</span>{% endif %}</td>
+{% if k.fehler %}<td colspan="4" class="muted">{{ k.fehler }}</td>{% else %}
+<td class="num">{{ k.bilanzsumme|eur }}</td><td class="num">{{ k.eigenkapital|eur }}</td><td class="num">{{ k.jahresergebnis|eur }}</td><td class="num">{{ k.kontennachweis or "–" }}</td>{% endif %}
+<td><form method="post" action="{{ M }}/abgaben/{{ k.jahr }}/pruefen" class="inline"><button class="small secondary">Prüfen</button></form></td></tr>
+{% else %}<tr><td colspan="6" class="muted">Noch kein Jahr: Saldenliste ablegen (Kommandozeile <code>kontor elster saldenliste</code>) oder Journal buchen.</td></tr>{% endfor %}</table>
+
+{% if pruefung %}<h3>Prüfung {{ pruefung.jahr }}: {{ "fehlerfrei" if pruefung.ok else "mit Fehlern" }}</h3>
+<p class="{{ 'muted' if pruefung.ok else 'error' }}">{{ pruefung.text }}</p>
+{% if pruefung.meldungen %}<ul>{% for m in pruefung.meldungen %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}{% endif %}
+
+{% if ergebnis %}<h3>{{ "Testversand" if ergebnis.test else "Übermittlung" }} {{ ergebnis.jahr }}: {{ "angenommen" if ergebnis.ok else "abgelehnt" }}</h3>
+<p class="{{ 'muted' if ergebnis.ok else 'error' }}">{{ ergebnis.text }}{% if ergebnis.transferticket %} · Transferticket <code>{{ ergebnis.transferticket }}</code>{% endif %}</p>
+{% if ergebnis.meldungen %}<ul>{% for m in ergebnis.meldungen %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}{% endif %}
+
+<h3>Senden</h3>
+{% if not s.elster_hersteller_id or not s.elster_zertifikat %}<p class="muted">Senden braucht die eigene Hersteller-ID und den Pfad zum ELSTER-Zertifikat (<a href="{{ M }}/einstellungen">Einstellungen → ELSTER</a>). Prüfen geht schon ohne.</p>
+{% else %}<p class="muted">Erst einen Testversand: ELSTER bestätigt den Eingang und löscht den Testfall. Dann echt senden. Die PIN wird nicht gespeichert.</p>
+<form method="post" action="{{ M }}/abgaben/senden" class="grid" data-ask="Datensatz an ELSTER senden?"><input type="hidden" name="confirm" value="{{ confirm }}">
+  <label>Jahr<select name="jahr">{% for k in jahre if k.jahr < heute_jahr %}<option>{{ k.jahr }}</option>{% endfor %}</select></label>
+  <label>Art<select name="art"><option value="test">Testversand</option><option value="echt">Echt senden</option></select></label>
+  <label>PIN des Zertifikats<input type="password" name="pin" autocomplete="off" required></label>
+  <p class="wide muted">Datenschutz: Die ERiC-Lizenz verpflichtet den Softwarehersteller, den Nutzern vor der Nutzung die Datenschutzhinweise der Finanzverwaltung zur Kenntnis zu bringen. Wer mit Kontor über ERiC sendet, ist selbst dieser Hersteller. Kontor liefert den Wortlaut nicht mit, weil er sich ändern kann; den aktuellen Text gibt es im ELSTER-Entwicklerbereich (https://www.elster.de/eportal/infoseite/entwickler).</p>
+  <label class="wide"><span><input type="checkbox" name="datenschutz" value="1" required> Ich habe die aktuellen Datenschutzhinweise der Finanzverwaltung gelesen.</span></label>
+  <div class="actions"><button>Senden</button></div></form>{% endif %}
+
+<h3>Gesendet</h3>
+<table class="list"><tr><th>Am</th><th>Jahr</th><th>Art</th><th>Ergebnis</th><th>Transferticket</th><th>Protokoll</th></tr>
+{% for u in uebermittlungen %}<tr><td>{{ u.am[:16].replace("T", " ") }}</td><td>{{ u.jahr }}</td><td>{{ "Test" if u.test else "echt" }}</td><td>{{ "angenommen" if u.ok else "abgelehnt (" ~ u.code ~ ")" }}</td><td><code>{{ u.transferticket }}</code></td><td>{{ u.protokoll }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Noch nichts gesendet.</td></tr>{% endfor %}</table>
+<p class="muted">Datensatz und Übertragungsprotokoll liegen schreibgeschützt im Datenordner unter <code>archiv/elster/</code>.</p>
+{% endblock %}

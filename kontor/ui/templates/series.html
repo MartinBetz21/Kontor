@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% block title %}Serienrechnungen{% endblock %}
+{% block main %}
+<h1>Serienrechnungen</h1>
+<p class="muted">Jede fällige Periode wird beim Öffnen der App ein Rechnungsentwurf mit Leistungszeitraum. Abschließen und verschicken machst du wie gewohnt.</p>
+<table class="list"><tr><th>Kunde</th><th>Betreff</th><th class="num">je Monat netto</th><th>Start</th><th>Erstellt</th><th>Nächste</th><th>Status</th><th></th></tr>
+{% for s in items %}<tr class="{{ 'muted' if not s.active }}"><td>{{ s.customer.company or s.customer.contact }}</td><td>{{ s.subject }}</td>
+<td class="num">{{ s.net_per_period|eur }}</td><td>{{ s.start_date|date_de }}</td><td>{{ s.issued }}{% if s.count %} von {{ s.count }}{% endif %}</td>
+<td>{{ s.next_date|date_de if s.active else "—" }}</td><td>{{ "aktiv" if s.active else ("fertig" if s.count and s.issued >= s.count else "pausiert") }}</td>
+<td>{% if not (s.count and s.issued >= s.count) %}<form method="post" action="{{ M }}/serien/{{ s.id }}/aktiv" class="inline"><input type="hidden" name="aktiv" value="{{ '0' if s.active else '1' }}"><button class="small secondary">{{ "Pausieren" if s.active else "Fortsetzen" }}</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">Noch keine Serie.</td></tr>{% endfor %}</table>
+<h2>Neue Serie</h2>
+<form method="post" action="{{ M }}/serien" class="grid">
+  {% if source %}<input type="hidden" name="source_document_id" value="{{ source.id }}"><p class="wide muted">Zu Angebot {{ source.number }}</p>{% endif %}
+  <label>Kunde<select name="customer_id" required>{% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if source and source.customer_id == c.id }}>{{ c.company or c.contact }}</option>{% endfor %}</select></label>
+  <label>Betreff (Monat wird angehängt)<input name="subject" required placeholder="Einführung"></label>
+  <label>Erster Leistungstag (z. B. Go-live)<input type="date" name="start_date" required></label>
+  <label>Anzahl Monate (leer = unbegrenzt)<input name="count" inputmode="numeric" placeholder="3"></label>
+  <label class="wide">Position<input name="line_title" list="katalog" required placeholder="Einführung"></label>
+  <label class="wide">Beschreibung<textarea name="line_description" rows="2"></textarea></label>
+  <label>Preis je Monat netto<input name="line_price" inputmode="decimal" required placeholder="500,00"></label>
+  <label>USt<select name="line_tax"><option>19</option><option>7</option><option>0</option></select></label>
+  <datalist id="katalog">{% for i in catalog %}<option value="{{ i.title }}">{% endfor %}</datalist>
+  <div class="actions"><button>Serie anlegen</button></div>
+</form>
+{% endblock %}

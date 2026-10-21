@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Kunden{% endblock %}
+{% block main %}
+<h1>Kunden</h1>
+<table class="list"><tr><th>Firma</th><th>Ansprechpartner</th><th>Ort</th><th></th></tr>
+{% for c in items %}<tr class="{{ 'muted' if c.archived }}"><td><a href="{{ M }}/kunden/{{ c.id }}">{{ c.company or "—" }}</a></td><td>{{ c.contact }}</td><td>{{ c.postcode }} {{ c.city }}</td><td>{{ "archiviert" if c.archived }}</td></tr>{% endfor %}
+</table>
+<h2>Neuer Kunde</h2>
+{% set c = {} %}{% include "_customer_form.html" %}
+{% endblock %}

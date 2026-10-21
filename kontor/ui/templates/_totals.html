@@ -1,0 +1,6 @@
+{% if t %}<table class="list totals">
+{% if t.allowances or t.charges %}<tr><td>Zwischensumme</td><td class="num">{{ t.lines_net|eur }}</td></tr>{% endif %}
+<tr><td><b>Summe netto</b></td><td class="num"><b>{{ t.net|eur }}</b></td></tr>
+{% for g in t.groups %}<tr><td>zzgl. {{ g.rate }} % USt</td><td class="num">{{ g.tax|eur }}</td></tr>{% endfor %}
+<tr><td><b>Gesamtbetrag</b></td><td class="num"><b>{{ t.gross|eur }}</b></td></tr></table>
+{% else %}<div class="error">{{ message }}</div>{% endif %}

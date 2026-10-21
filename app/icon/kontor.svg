@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Kontor</title>
+  <defs>
+    <linearGradient id="kontor-bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#25394A"/><stop offset="1" stop-color="#101B23"/>
+    </linearGradient>
+    <linearGradient id="kontor-messing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EBCB7A"/><stop offset="0.55" stop-color="#C99A3E"/><stop offset="1" stop-color="#A97A26"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#kontor-bg)"/>
+  <rect x="300" y="236" width="104" height="444" rx="14" fill="#F4EFE4"/>
+  <path d="M404 452 L640 236 L764 236 L404 566 Z" fill="#F4EFE4"/>
+  <path d="M520 456 L764 680 L628 680 L440 508 Z" fill="#F4EFE4"/>
+  <rect x="300" y="736" width="464" height="30" rx="8" fill="url(#kontor-messing)"/>
+  <rect x="300" y="796" width="464" height="30" rx="8" fill="url(#kontor-messing)"/>
+</svg>

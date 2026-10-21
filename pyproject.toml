@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kontor"
+version = "0.2.1"
+description = "Kontor: invoicing and double-entry bookkeeping for small German businesses, AI-agent friendly"
+requires-python = ">=3.12"
+
+[project.scripts]
+kontor = "kontor.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["kontor*"]
+
+[tool.setuptools.package-data]
+kontor = ["render/templates/*.html", "render/assets/*.css", "render/assets/fonts/*", "ui/templates/*.html", "ui/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

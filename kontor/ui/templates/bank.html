@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Bank {{ year }}{% endblock %}
+{% block main %}
+<h1>Bank {{ year }} <span class="muted">· {{ open_count }} ohne Zuordnung</span></h1>
+<form method="get" class="filters"><label>Jahr<input name="jahr" value="{{ year }}" inputmode="numeric" style="width:6em"></label>
+  <label>Anzeige<select name="offen"><option value="1" {{ 'selected' if offen }}>nur offene</option><option value="0" {{ 'selected' if not offen }}>alle</option></select></label>
+  <button class="secondary">Zeigen</button></form>
+<form method="post" action="{{ M }}/bank/vorschlaege"><input type="hidden" name="jahr" value="{{ year }}"><button>Alle Vorschläge übernehmen</button></form>
+<p class="muted">Ein Umsatz hat genau ein Ziel. Ohne Zuordnung parkt er auf 3500. Steuer: 19/7 = Vor- bzw. Umsatzsteuer herausrechnen, rc_eu/rc_drittland = § 13b (zahllastneutral), 0 = ohne Steuer.</p>
+<table class="list"><tr><th>Datum</th><th>Konto</th><th>Gegenpartei / Zweck</th><th class="num">Betrag</th><th>Zuordnung</th></tr>
+{% for t in txs %}<tr class="{{ 'muted' if t.duplicate }}"><td>{{ t.booked_on|date_de }}</td><td>{{ t.bank_account }}</td>
+  <td><b>{{ t.counterparty }}</b><span class="desc">{{ t.purpose }}</span></td><td class="num">{{ t.amount|eur }}</td>
+  <td>{% if t.duplicate %}Dublette (zählt nicht){% elif t.kind %}{{ t.kind }} {{ t.target_account or "" }} {{ t.tax_key or "" }}{% if t.a_note %} <small class="muted">{{ t.a_note }}</small>{% endif %}
+      <form method="post" action="{{ M }}/bank/{{ t.id }}/loesen" style="display:inline"><input type="hidden" name="jahr" value="{{ year }}"><button class="secondary small">lösen</button></form>
+    {% else %}
+      <form method="post" action="{{ M }}/bank/{{ t.id }}/zuordnen" class="inline"><input type="hidden" name="jahr" value="{{ year }}">
+        <select name="art"><option value="konto" {{ 'selected' if not t.vorschlag or t.vorschlag.kind == 'konto' }}>Konto</option><option value="rechnung" {{ 'selected' if t.vorschlag and t.vorschlag.kind == 'rechnung' }}>Rechnung</option><option value="intern">intern</option></select>
+        <input name="konto" placeholder="SKR04" size="5" value="{{ t.vorschlag.account if t.vorschlag and t.vorschlag.account else '' }}">
+        <select name="steuer">{% for k in ("19", "7", "0", "rc_eu", "rc_drittland") %}<option {{ 'selected' if t.vorschlag and t.vorschlag.tax_key == k }}>{{ k }}</option>{% endfor %}</select>
+        <select name="rechnung"><option value="">– Rechnung –</option>{% for i in invoices %}<option value="{{ i.id }}" {{ 'selected' if t.vorschlag and t.vorschlag.document_id == i.id }}>{{ i.number }} · {{ i.gross|eur }}</option>{% endfor %}</select>
+        <button class="small">zuordnen</button>{% if t.vorschlag %} <small class="muted">Vorschlag: {{ t.vorschlag.regel }}</small>{% endif %}
+      </form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">keine Umsätze</td></tr>{% endfor %}</table>
+<h2>Saldo-Anker</h2>
+<table class="list"><tr><th>Konto</th><th>Datum</th><th class="num">Saldo laut Auszug</th><th>Notiz</th></tr>
+{% for a in anchors %}<tr><td>{{ accounts[a.iban].account }} {{ accounts[a.iban].name }}</td><td>{{ a.date|date_de }}</td><td class="num">{{ a.balance|eur }}</td><td>{{ a.note }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">noch keiner (<code>kontor bank anker</code>)</td></tr>{% endfor %}</table>
+{% endblock %}

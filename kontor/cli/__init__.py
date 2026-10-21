@@ -1,0 +1,1 @@
+"""Kommandozeile `kontor`."""

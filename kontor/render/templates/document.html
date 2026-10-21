@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>{{ label }} {{ s.number or "Entwurf" }}</title>
+<link rel="stylesheet" href="{{ css_uri }}"></head><body>
+{% if draft %}<div class="watermark">Entwurf</div>{% endif %}
+{% set sl = s.seller %}{% set by = s.buyer %}
+<div class="top">
+  {% if logo_uri %}<img src="{{ logo_uri }}" alt="{{ sl.trade_name or sl.name }}">{% else %}<span></span>{% endif %}
+  <div class="sender">{{ sl.name }}{% if sl.trade_name %} · {{ sl.trade_name }}{% endif %}<br>{{ sl.street }}<br>{{ sl.postcode }} {{ sl.city }}<br>{{ sl.email }}{% if sl.phone %}<br>{{ sl.phone }}{% endif %}</div>
+</div>
+<div class="address">
+  <div><span class="small">{{ sl.name }} · {{ sl.street }} · {{ sl.postcode }} {{ sl.city }}</span><br>
+    {% if by.company %}{{ by.company }}<br>{% endif %}{% if by.contact %}{{ by.contact }}<br>{% endif %}
+    {% if by.street %}{{ by.street }}<br>{% endif %}{{ by.postcode }} {{ by.city }}{% if by.country and by.country != "DE" %}<br>{{ by.country|country_de }}{% endif %}
+    {% if by.vat_id %}<br>USt-IdNr. {{ by.vat_id }}{% endif %}</div>
+  <dl class="meta">
+    <dt>{{ "Angebot" if s.kind == "angebot" else "Rechnung" }} Nr.</dt><dd>{{ s.number or "Entwurf" }}</dd>
+    <dt>Datum</dt><dd>{{ s.doc_date|date_de }}</dd>
+    {% if s.kind == "angebot" %}<dt>Gültig bis</dt><dd>{{ s.valid_until|date_de }}</dd>
+    {% else %}
+      {% if s.kind == "abschlag" %}<dt>Leistung</dt><dd>noch nicht erbracht</dd>
+        {% if s.service_from %}<dt>Voraussichtlich</dt><dd>{{ s.service_from|date_de }} – {{ s.service_to|date_de }}</dd>
+        {% elif s.service_date %}<dt>Voraussichtlich</dt><dd>{{ s.service_date|date_de }}</dd>{% endif %}
+      {% elif s.service_from %}<dt>Leistungszeitraum</dt><dd>{{ s.service_from|date_de }} – {{ s.service_to|date_de }}</dd>
+      {% else %}<dt>Leistungsdatum</dt><dd>{{ (s.service_date or s.doc_date)|date_de }}</dd>{% endif %}
+      {% if s.due_date and s.kind != "storno" %}<dt>Fällig am</dt><dd>{{ s.due_date|date_de }}</dd>{% endif %}
+      {% if s.source_number %}<dt>{{ "Storno zu" if s.kind == "storno" else "Bezug" }}</dt><dd>{{ s.source_number }}</dd>{% endif %}
+    {% endif %}
+  </dl>
+</div>
+<h1>{{ label }}</h1>
+{% if s.subject %}<p class="subject">{{ s.subject }}</p>{% endif %}
+{% if s.correction %}<p class="subject"><b>Berichtigte Rechnung</b> (Fassung {{ s.correction.version }} vom {{ s.correction.date|date_de }}) zur Rechnung {{ s.number }} vom {{ s.correction.original_date|date_de }}: {{ s.correction.reason }}. Ersetzt die bisherige Fassung; Beträge unverändert.</p>{% endif %}
+<div class="text">{% for p in (s.intro or "").split("\n\n") if p.strip() %}<p>{{ p }}</p>{% endfor %}</div>
+<table>
+  <thead><tr><th>Pos.</th><th>Leistung</th><th class="num">Menge</th><th class="num">Einzelpreis</th><th class="num">Gesamt</th></tr></thead>
+  <tbody>{% for l in s.lines %}<tr><td>{{ l.position }}</td><td><b>{{ l.title }}</b>{% if l.description %}<span class="desc">{{ l.description }}</span>{% endif %}</td>
+    {% if l.unit_price == 0 %}<td class="num"></td><td class="num"></td><td class="num">inklusive</td>
+    {% else %}<td class="num">{{ l.quantity|qty }}</td><td class="num">{{ l.unit_price|eur }}</td><td class="num">{{ l.total|eur }}</td>{% endif %}</tr>{% endfor %}</tbody>
+  <tfoot>
+    {% set rest = s.allowances[-1] if s.share_percent and s.allowances and s.allowances[-1].label.startswith("Nicht Teil dieses Abschlags") else none %}
+    {% set shown = s.allowances[:-1] if rest else s.allowances %}
+    {% if shown %}<tr><td></td><td colspan="3">Zwischensumme</td><td class="num">{{ s.totals.lines_net|eur }}</td></tr>
+      {% for a in shown %}<tr><td></td><td colspan="3">{{ a.label }}</td><td class="num">{{ a.amount|eur }}</td></tr>{% endfor %}{% endif %}
+    {% if s.share_percent %}<tr><td></td><td colspan="3">Summe der Leistungen netto</td><td class="num">{{ (s.totals.net - (rest.amount if rest else 0))|eur }}</td></tr>
+    <tr class="net"><td></td><td colspan="3">davon Abschlag {{ s.share_percent }} % (Summe netto)</td><td class="num">{{ s.totals.net|eur }}</td></tr>
+    {% else %}<tr class="net"><td></td><td colspan="3">Summe netto</td><td class="num">{{ s.totals.net|eur }}</td></tr>{% endif %}
+    {% for g in s.totals.groups if not (s.tax_note and g.rate == "0") %}<tr><td></td><td colspan="3">zzgl. {{ g.rate }} % Umsatzsteuer auf {{ g.basis|eur }}</td><td class="num">{{ g.tax|eur }}</td></tr>{% endfor %}
+    <tr class="gross"><td></td><td colspan="3">Gesamtbetrag</td><td class="num">{{ s.totals.gross|eur }}</td></tr>
+    {% for p in s.prepaid %}<tr><td></td><td colspan="3">abzgl. Abschlag {{ p.number }} (netto {{ p.net|eur }}, USt {{ p.tax|eur }})</td><td class="num">{{ (-p.gross)|eur }}</td></tr>{% endfor %}
+    {% if s.prepaid %}<tr class="gross"><td></td><td colspan="3">{{ "Summe nach Abschlägen" if s.kind == "storno" else "Noch zu zahlen" }}</td><td class="num">{{ s.due|eur }}</td></tr>{% endif %}
+  </tfoot>
+</table>
+{% if s.tax_note %}<div class="after"><p><b>{{ s.tax_note }}</b></p></div>{% endif %}
+{% if s.notes %}<div class="after">{% for p in s.notes.split("\n") if p.strip() %}<p>{{ p }}</p>{% endfor %}</div>{% endif %}
+{% if s.conditions %}<h2>Konditionen</h2><dl class="cond">{% for k, v in s.conditions %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>{% endif %}
+{% if "payment_note" in s %}{% if s.payment_note %}<div class="after"><p>{{ s.payment_note }}</p></div>{% endif %}
+{% elif s.kind in ("rechnung", "abschlag", "schluss") and sl.iban %}<div class="after"><p>Bitte überweise {{ s.due|eur }} bis {{ s.due_date|date_de }} an {{ sl.name }}, IBAN {{ sl.iban }}, unter Angabe der Rechnungsnummer.</p></div>{% endif %}
+<div class="closing">{% for p in (s.closing or "").split("\n\n") if p.strip() %}<p>{% for line in p.split("\n") %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endfor %}</div>
+<div class="foot">
+  <div class="foot-col"><b>{{ sl.name }}{% if sl.trade_name %} · {{ sl.trade_name }}{% endif %}</b><br>{{ sl.street }}<br>{{ sl.postcode }} {{ sl.city }}{% if sl.register_number %}<br>Sitz: {{ sl.seat }}<br>{{ sl.register_court }}, <span class="nowrap">{{ sl.register_number }}</span><br>Geschäftsführer: {{ sl.managing_directors }}{% endif %}</div>
+  <div class="foot-col">{{ sl.email }}{% if sl.phone %}<br>{{ sl.phone }}{% endif %}</div>
+  <div class="foot-col">{% if sl.tax_number %}Steuernummer {{ sl.tax_number }}{% elif sl.tax_number_pending and not sl.vat_id %}Steuernummer wird nachgeliefert{% endif %}{% if sl.vat_id %}{% if sl.tax_number %}<br>{% endif %}USt-IdNr. {{ sl.vat_id }}{% endif %}</div>
+  <div class="foot-col">{% if sl.iban %}{{ sl.bank_name }}<br>Kontoinhaber {{ sl.name }}<br><span class="nowrap">IBAN {{ sl.iban }}</span>{% if sl.bic %}<br>BIC {{ sl.bic }}{% endif %}{% endif %}</div>
+</div>
+</body></html>
