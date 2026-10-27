@@ -11,6 +11,6 @@ pillow==12.3.0
 pillow-heif==1.8.0
 pywebview==6.2.1
 httpx==0.28.1
-httpx2==2.13.1      # pydantic/httpx2 (BSD-3-Clause), the HTTP client starlette's TestClient uses; tests only
+httpx2==2.16.0      # pydantic/httpx2 (BSD-3-Clause), the HTTP client starlette's TestClient uses; tests only
 pytest==9.1.1
 watchfiles==1.3.0
