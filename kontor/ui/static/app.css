@@ -75,4 +75,31 @@ button.small { padding: 3px 9px; font-size: 12px; }
 a.button.small { padding: 3px 9px; font-size: 12px; }
 .small-text { font-size: 12px; margin: 4px 0 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-footer.terms { margin: 2rem 1.5rem 1.5rem; font-size: .8rem; }
+footer.terms { margin: 2rem 0 0; font-size: .8rem; }
+.tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid #d5dde1; }
+.tabs a { padding: 6px 12px; text-decoration: none; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.tabs a.on { border-color: #d5dde1; background: #fff; font-weight: 600; margin-bottom: -1px; }
+.auftrag { background: #fff; border: 1px solid #d5dde1; border-radius: 8px; padding: 12px 16px; margin: 0 0 12px; }
+.auftrag p { margin: 6px 0 0; }
+.auftrag-kopf { display: flex; gap: 8px; align-items: center; font-size: 15px; }
+.small { font-size: 12px; }
+.error-text { color: var(--bad); }
+
+.abschluss-kopf { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid var(--line); border-left: 6px solid var(--warn); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; }
+.abschluss-kopf.fertig { border-left-color: var(--accent); }
+.abschluss-kopf span { color: var(--muted); font-size: 12px; display: block; } .abschluss-kopf b { font-size: 26px; } .abschluss-kopf small { display: block; color: var(--muted); }
+.abschluss-kopf .stand { font-size: 16px; font-weight: 600; color: var(--warn); } .abschluss-kopf.fertig .stand { color: var(--accent); }
+ol.schritte { list-style: none; padding: 0; margin: 0 0 20px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+ol.schritte li { display: flex; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+ol.schritte li:last-child { border-bottom: 0; }
+ol.schritte i { flex: none; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; font-size: 13px; background: #e5e9ec; color: var(--muted); }
+ol.schritte li.ok i { background: var(--accent); color: #fff; } ol.schritte li.warn i { background: var(--warn); color: #fff; }
+ol.schritte li.ok b { color: var(--muted); } ol.schritte p { margin: 2px 0 0; }
+ol.schritte li.warn p { color: var(--warn); }
+.inline-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.herleitung { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 16px 10px; margin-bottom: 16px; }
+.herleitung .zeile { display: flex; justify-content: space-between; padding: 10px 0 4px; font-size: 15px; }
+.herleitung .zeile.summe { border-top: 2px solid var(--ink); margin-top: 6px; font-size: 17px; }
+.herleitung ul { list-style: none; margin: 0 0 6px; padding: 0 0 6px 14px; border-bottom: 1px solid var(--line); }
+.herleitung li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 2px 0; }
+.abschluss-kopf small.error-text { color: var(--bad); font-weight: 600; }

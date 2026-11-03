@@ -26,10 +26,13 @@ Other agents (Codex CLI, Gemini CLI, Cursor, Aider and the like) work with the s
 - Offers and invoices with line items and discounts. An accepted offer becomes a partial or final invoice. Invoices can be cancelled (Storno) or corrected. Finalized invoices become PDF/A-3b with an embedded ZUGFeRD / Factur-X XML (profile EN 16931).
 - Sequential, gap-free number series (`RE-2026-001`, `AN-2026-001`), configurable width, and a starting number for migrating from another program.
 - Receipts (Belege): upload or import, pre-filled by an agent, confirmed by a human, then filed under `belege/YYYY/MM/`. Receipts with several VAT rates, business meals (70/30 split), self-issued receipts (Eigenbeleg).
-- Payments, cash-basis VAT (Istversteuerung), month locks after the VAT return.
+- Payments (also received before the invoice exists), cash-basis VAT (Istversteuerung), month locks after the VAT return.
 - VAT pre-return figures (UStVA, by ELSTER field number) to type into Mein ELSTER, EÜR (cash-basis profit statement), a yearly VAT overview.
 - For companies that keep double-entry books: journal on SKR04 accounts, opening balances from a trial balance, bank statement import (DATEV CSV format) with matching rules, balance sheet and P&L for micro companies, a list of known booking traps, year lock.
+- VAT pre-return (UStVA 2025 and 2026) checked by ERiC and sent as an approval job (profile switch `ustva_eric`).
+- Month-end page per VAT period: five steps with their status and a plain-language derivation of the amount due.
 - E-Bilanz (electronic balance sheet, XBRL taxonomy 6.8) generated, validated locally with ELSTER's ERiC library and, with your own manufacturer ID, sent. ERiC is not included.
+- Payroll (profile switch `lohn`): employees, monthly payslips with wage tax computed from the BMF's official Programmablaufplan and social-insurance contributions (regular, midijob, minijob), payslip PDF, journal lines, payroll journal, wage account, employer costs, wage-tax return through ERiC. Social-insurance reports are not sent (they need a certified program or sv.net). See [SPEC.md](SPEC.md).
 - Offer pipeline with expiry and follow-up tasks, recurring invoices (series), a subscription overview.
 - Several separate companies (Mandanten) in one install, each with its own data folder, colour and profile.
 - An append-only audit log with a hash chain, archive checksums and an integrity check (`kontor pruefen`).
@@ -99,7 +102,7 @@ On macOS, `app/build.sh` builds `~/Applications/Kontor.app`, a small pywebview w
 ### Optional tools
 
 - `tools/Mustang-CLI.jar` (Mustang project, Apache-2.0) plus a Java runtime validates generated e-invoices. Tests that need it skip when it is missing. Download it from the Mustang project releases and place it in `tools/` (it is gitignored).
-- ELSTER ERiC is only needed for E-Bilanz validation and sending. Get it from the ELSTER developer area under its own licence, register as a manufacturer to receive your own Hersteller-ID, and set `KONTOR_ERIC`. Never commit ERiC, certificates or your Hersteller-ID.
+- ELSTER ERiC is only needed for checking and sending to ELSTER (VAT pre-return, wage-tax returns, E-Bilanz). Get it from the ELSTER developer area under its own licence, register as a manufacturer to receive your own Hersteller-ID, and set `KONTOR_ERIC`. Never commit ERiC, certificates or your Hersteller-ID.
 
 ## Architecture
 
@@ -114,7 +117,7 @@ kontor/
   reports/         read-only: overview, ustva, euer, abschluss (balance sheet, traps), export (CSV)
   render/          pdf.py (HTML to PDF/A-3b via WeasyPrint), zugferd.py (CII XML), templates/, assets/ (CSS, fonts)
   importers/       datev.py (bank CSV), lexware.py (migration from Lexware API JSON), telegram.py (receipt inbox), base.py
-  elster/          ebilanz.py (XBRL dataset), eric.py (ctypes binding to ERiC), taxonomie_6_8.json
+  elster/          ebilanz.py (XBRL dataset), eric.py (ctypes binding to ERiC), taxonomie_6_8.json, lohn.py (LStA, LStB), ustva.py (VAT pre-return)
   store/           db.py (SQLite, migrations, tx()), audit.py (hash-chained log)
   api/             app.py (FastAPI factory, per-tenant routing, confirm tokens), pages.py (all routes)
   ui/              Jinja templates + htmx, app.css, app.js
@@ -135,7 +138,8 @@ A data folder contains `kontor.db` (SQLite), `archiv/YYYY/` (finalized PDFs and 
 
 - Amounts are integers in cents everywhere. Parse with `core.money.parse_eur`, format with `fmt_eur`.
 - A finalized document is immutable. Its snapshot (`core/snapshot.py`) is the truth for PDF, XML and later display, never the current master data. Corrections create a new version with a reason.
-- Human-only actions raise `HumanOnly` unless the actor is `ui`. Only a human finalizes or cancels a document and confirms or deletes a receipt. Locking a month or year and sending to ELSTER are human actions too. The CLI deliberately has no commands for them. Irreversible UI actions also need the per-tenant confirm token from the form.
+- Human-only actions raise `HumanOnly` unless the actor is `ui`. Only a human finalizes or cancels a document and confirms or deletes a receipt. Locking a month or year is a human action too. The CLI deliberately has no commands for them. Irreversible UI actions also need the per-tenant confirm token from the form.
+- Kontor is meant to be operated by an AI agent: the agent does the work through the CLI, Kontor enforces the rules and shows everything for review. Transmissions to authorities (ELSTER) are **approval jobs**: the agent prepares them (`kontor auftrag …`, checked by ERiC, explained in plain language), the human approves one or several under „Freigaben“ and enters the certificate PIN once. If the values changed since the job was prepared, it is not sent. Payroll payslips may be finalized and cancelled by the agent; the audit log names the actor.
 - All writes go through `store.db.tx()` and are logged by `store.audit.log()`.
 - Code never branches on a tenant id. Differences between companies are profile switches (`services/masterdata.PROFILE_SWITCHES`: profit method EÜR or balance sheet, VAT on cash basis (an accrual switch exists but is not implemented), chart of accounts, number width, bank import, E-Bilanz, Telegram inbox). A test checks this.
 - Schema changes are new files in `migrations/` (`NNNN_name.sql`). Never edit an applied migration.
@@ -195,6 +199,7 @@ Areas: `einstellungen`, `profil`, `kunde`, `position`, `textvorlage`, `angebot`,
 | Cash-basis profit statement (EÜR), meal deduction 70/30 | `reports/euer.py`, categories seeded in `migrations/0001_init.sql` |
 | Chart of accounts SKR04 and balance sheet layout | `core/bilanz.py`, `services/autojournal.py`, `services/journal.py`, `services/bank.py`, `reports/abschluss.py` |
 | E-Bilanz (XBRL) and ELSTER transmission | `elster/`, `services/elster.py`, `tools/ebilanz_taxonomie.py` |
+| VAT pre-return via ELSTER | `elster/ustva.py`, `services/voranmeldung.py` |
 | Bank and migration formats (DATEV CSV, Lexware) | `importers/datev.py`, `importers/lexware.py` |
 | E-invoice ZUGFeRD / Factur-X (EN 16931) | `render/zugferd.py` (usable across the EU, not only in Germany) |
 

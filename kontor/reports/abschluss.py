@@ -116,7 +116,11 @@ def auffaelligkeiten(ctx: Ctx, year: int) -> list[dict]:
                               "text": f"{r['date']} {fmt_eur(-r['amount'])} an „{owner}“ auf {r['contra']} gebucht, "
                                       f"am {twin[0]['date']} auf {twin[0]['account']} eingegangen",
                               "buchungen": [r, *twin]})
-    return found + _bank_findings(ctx, year)
+    found += _bank_findings(ctx, year)
+    if md.has(ctx, "bitcoin"):
+        from ..services import bitcoin
+        found += bitcoin.auffaelligkeiten(ctx, year)
+    return found
 
 
 def _bank_findings(ctx: Ctx, year: int) -> list[dict]:
@@ -163,7 +167,8 @@ def _bank_findings(ctx: Ctx, year: int) -> list[dict]:
                                       "kosten sind nicht steuerbar)", "buchungen": [_as_line(t)]})
     for p in ctx.conn.execute(
             "SELECT p.*, d.number FROM payments p JOIN documents d ON d.id = p.document_id WHERE p.kind = 'einnahme' "
-            "AND p.origin = 'ledger' AND p.source <> 'bank' AND substr(p.pay_date, 1, 4) = ?", (str(year),)):
+            "AND p.origin = 'ledger' AND p.source <> 'bank' AND substr(p.pay_date, 1, 4) = ? "
+            "AND p.id NOT IN (SELECT payment_id FROM btc_movements WHERE payment_id IS NOT NULL)", (str(year),)):
         found.append({"art": "zahlung_ohne_bank", "konto": "1200", "betrag": p["amount"],
                       "text": f"{p['pay_date']} Zahlung {fmt_eur(p['amount'])} auf {p['number']} ohne Bankumsatz "
                               "(Bitcoin, Stripe, bar?) — Gegenkonto per Buchung von Hand", "buchungen": []})

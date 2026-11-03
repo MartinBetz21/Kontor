@@ -10,19 +10,23 @@ UST_ACCOUNTS = ("3801", "3806", "3811", "3816", "3837", "3841", "1401", "1406", 
 SKR04_NAMES = {
     "1200": "Forderungen aus Lieferungen und Leistungen", "1401": "Abziehbare Vorsteuer 7 %",
     "1406": "Abziehbare Vorsteuer 19 %", "1407": "Abziehbare Vorsteuer nach § 13b UStG 19 %",
-    "1460": "Geldtransit", "3300": "Verbindlichkeiten aus Lieferungen und Leistungen",
+    "1300": "Sonstige Vermögensgegenstände", "1370": "Durchlaufende Posten", "1460": "Geldtransit", "3300": "Verbindlichkeiten aus Lieferungen und Leistungen",
     "3500": "Noch nicht zugeordnete Bankvorgänge", "3510": "Verbindlichkeiten gegenüber Gesellschaftern",
     "3720": "Verbindlichkeiten aus Lohn und Gehalt", "3801": "Umsatzsteuer 7 %", "3806": "Umsatzsteuer 19 %",
     "3811": "Umsatzsteuer nicht fällig 7 %", "3816": "Umsatzsteuer nicht fällig 19 %",
     "3837": "Umsatzsteuer nach § 13b UStG 19 %", "3841": "Umsatzsteuer Vorjahr",
     "4200": "Erlöse", "4300": "Erlöse 7 % USt", "4336": "Erlöse aus im anderen EU-Land steuerpflichtigen Leistungen (§ 13b)",
     "4338": "Erlöse aus im Drittland steuerbaren Leistungen", "4400": "Erlöse 19 % USt",
+    "4830": "Sonstige betriebliche Erträge", "4915": "Erträge aus Zuschreibungen des Umlaufvermögens außer Vorräten",
     "6120": "Beiträge zur Berufsgenossenschaft", "6420": "Beiträge", "6673": "Reisekosten Unternehmer Fahrtkosten",
     "6825": "Rechts- und Beratungskosten", "6827": "Abschluss- und Prüfungskosten", "6830": "Buchführungskosten",
     "6837": "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen)",
-    "6840": "Mietleasing (bewegliche Wirtschaftsgüter)", "6969": "Sonstige Aufwendungen unregelmäßig",
+    "6840": "Mietleasing (bewegliche Wirtschaftsgüter)", "6855": "Nebenkosten des Geldverkehrs",
+    "6910": "Abschreibungen auf Umlaufvermögen außer Vorräten und Wertpapieren (übliche Höhe)",
+    "6969": "Sonstige Aufwendungen unregelmäßig",
 }
 EQUITY_ACCOUNTS = ("2900", "2970", "2978")     # gezeichnetes Kapital, Gewinn- und Verlustvortrag
+ABSCHREIBUNG_UV = ("6910", "6960")             # Abschreibungen auf Umlaufvermögen (Bitcoin zum Stichtag, Spec 18.14)
 
 
 def is_pl(account: str) -> bool:
@@ -45,7 +49,7 @@ def positions(bal: dict[str, int], share_capital: int, outstanding: int) -> dict
             elif x < 6000: p["material"] += v
             elif x < 6200: p["personal"] += v
             elif x < 6300: p["abAV"] += v
-            elif k == "6960": p["abUV"] += v
+            elif k in ABSCHREIBUNG_UV: p["abUV"] += v
             elif x < 7000: p["sba"] += v
             elif x < 7300: p["zinsE"] -= v
             else: p["zinsA"] += v

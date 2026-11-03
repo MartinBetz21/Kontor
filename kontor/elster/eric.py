@@ -149,3 +149,133 @@ def senden(xml: str, datenart: str, zertifikat: Path, pin: str, protokoll: Path)
             result["log"] = (log / "eric.log").read_text(encoding="utf-8", errors="replace")[-4000:]
         result["protokoll"] = str(protokoll) if protokoll.is_file() else ""
         return result
+
+
+# -- Abholen aus dem Postfach (ElsterDatenabholung, Spec Lohn/ELStAM) ---------------------------------------------------
+
+def _otto_lib(base: Path):
+    name = "libotto.dylib" if (base / "lib" / "libotto.dylib").is_file() else "libotto.so"
+    lib = ctypes.CDLL(str(base / "lib" / name))
+    lib.OttoInstanzErzeugen.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    lib.OttoInstanzFreigeben.argtypes = [ctypes.c_void_p]
+    lib.OttoRueckgabepufferErzeugen.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    lib.OttoRueckgabepufferGroesse.argtypes = [ctypes.c_void_p]
+    lib.OttoRueckgabepufferGroesse.restype = ctypes.c_uint64
+    lib.OttoRueckgabepufferInhalt.argtypes = [ctypes.c_void_p]
+    lib.OttoRueckgabepufferInhalt.restype = ctypes.c_void_p
+    lib.OttoRueckgabepufferFreigeben.argtypes = [ctypes.c_void_p]
+    lib.OttoDatenAbholen.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p,
+                                     ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
+    lib.OttoHoleFehlertext.argtypes = [ctypes.c_int]
+    lib.OttoHoleFehlertext.restype = ctypes.c_char_p
+    return lib
+
+
+def otto_version() -> str:
+    """Version der Otto-Bibliothek (OTTER-Client); prüft nur, dass sie sich laden lässt. Kein Netzzugriff."""
+    base = eric_dir()
+    lib = _otto_lib(base)
+    inst = ctypes.c_void_p()
+    with tempfile.TemporaryDirectory(prefix="kontor-otto-") as log:
+        if lib.OttoInstanzErzeugen(log.encode(), None, None, ctypes.byref(inst)):
+            raise KontorError("Otto startet nicht.")
+        try:
+            lib.OttoVersion.argtypes = [ctypes.c_void_p]
+            buf = ctypes.c_void_p()
+            lib.OttoRueckgabepufferErzeugen(inst, ctypes.byref(buf))
+            try:
+                lib.OttoVersion(buf)
+                return ctypes.string_at(lib.OttoRueckgabepufferInhalt(buf), lib.OttoRueckgabepufferGroesse(buf)).decode()
+            finally:
+                lib.OttoRueckgabepufferFreigeben(buf)
+        finally:
+            lib.OttoInstanzFreigeben(inst)
+
+
+def _otto_holen(otto, inst, objekt_id: str, groesse: int, zertifikat: Path, pin: str, hersteller_id: str) -> bytes:
+    buf = ctypes.c_void_p()
+    rc = otto.OttoRueckgabepufferErzeugen(inst, ctypes.byref(buf))
+    if rc:
+        raise KontorError(f"Otto: Puffer nicht anlegbar (Code {rc}).")
+    try:
+        rc = otto.OttoDatenAbholen(inst, objekt_id.encode(), groesse, str(zertifikat).encode(), pin.encode(),
+                                   hersteller_id.encode(), None, buf)
+        if rc:
+            raise KontorError(f"Abholen {objekt_id}: {(otto.OttoHoleFehlertext(rc) or b'').decode('utf-8', 'replace')}")
+        return ctypes.string_at(otto.OttoRueckgabepufferInhalt(buf), otto.OttoRueckgabepufferGroesse(buf))
+    finally:
+        otto.OttoRueckgabepufferFreigeben(buf)
+
+
+def abholen(anfrage_xml: str, datenart: str, zertifikat: Path, pin: str, hersteller_id: str,
+            bestaetigung=None, ablegen=None) -> dict:
+    """Postfach abholen: PostfachAnfrage senden, jedes Datenpaket vom OTTER-Server holen (Otto), mit dem Zertifikat
+    entschlüsseln (`EricDekodiereDaten`) und danach bestätigen. Nur aus der Oberfläche aufrufen (Zertifikat und PIN
+    gehören dem Menschen; die PIN wird nie gespeichert).
+
+    `anfrage_xml`/`datenart`: z. B. `elstam.postfach_anfrage(...)` und `elstam.elstam_datenart("anfrage")`.
+    `bestaetigung`: Funktion `ids -> XML` der PostfachBestaetigung (z. B. mit `elstam.postfach_bestaetigung`); ohne sie
+    wird nicht bestätigt. `ablegen`: Funktion, die die entschlüsselten Pakete übernimmt (Liste von Dicts) und vor der
+    Bestätigung aufgerufen wird; wirft sie, geht keine Bestätigung raus und die Listen bleiben im Postfach.
+    Rückgabe: `ok`, `anfrage` (Ergebnis wie bei `senden`), `pakete` (je Datenpaket `bereitstellung`, `art`,
+    `referenz_id`, `xml` oder `fehler`), `bestaetigung` (Ergebnis oder None), `bestaetigt` (IDs)."""
+    from . import elstam
+    if not zertifikat.is_file():
+        raise KontorError(f"Zertifikat nicht gefunden: {zertifikat}")
+    base = eric_dir()
+    out: dict = {"ok": False, "anfrage": None, "pakete": [], "bestaetigung": None, "bestaetigt": []}
+    with _eric() as (lib, log):
+        lib.EricDekodiereDaten.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
+        handle, pin_support = ctypes.c_uint32(0), ctypes.c_uint32(0)
+        rc = lib.EricGetHandleToCertificate(ctypes.byref(handle), ctypes.byref(pin_support), str(zertifikat).encode())
+        if rc:
+            raise KontorError(f"Zertifikat lässt sich nicht öffnen: {_fehlertext(lib, rc)}")
+        try:
+            krypto = _Krypto(3, handle.value, pin.encode())
+            out["anfrage"] = anfrage = _vorgang(lib, anfrage_xml, datenart, ERIC_VALIDIERE | ERIC_SENDE, None, krypto)
+            if not anfrage["ok"]:
+                return out
+            otto = _otto_lib(base)
+            inst = ctypes.c_void_p()
+            with tempfile.TemporaryDirectory(prefix="kontor-otto-") as olog:
+                if otto.OttoInstanzErzeugen(olog.encode(), None, None, ctypes.byref(inst)):
+                    raise KontorError("Otto startet nicht.")
+                try:
+                    fertig: list[str] = []
+                    for bs in elstam.bereitstellungen_lesen(anfrage["serverantwort"] or anfrage["rueckgabe"]):
+                        alle_ok = bool(bs["pakete"])
+                        for p in bs["pakete"]:
+                            eintrag = {"bereitstellung": bs["id"], "art": bs["art"], "referenz_id": p["referenz_id"],
+                                       "meta": bs["meta"]}
+                            try:
+                                roh = _otto_holen(otto, inst, p["referenz_id"], p["groesse"], zertifikat, pin,
+                                                  hersteller_id)
+                                dek = lib.EricRueckgabepufferErzeugen()
+                                try:
+                                    rc = lib.EricDekodiereDaten(handle.value, pin.encode(), roh.rstrip(b"\x00"), dek)
+                                    if rc:
+                                        raise KontorError(f"Entschlüsseln: {_fehlertext(lib, rc)}")
+                                    eintrag["xml"] = _text(lib, dek)
+                                finally:
+                                    lib.EricRueckgabepufferFreigeben(dek)
+                            except KontorError as e:
+                                eintrag["fehler"] = str(e)
+                                alle_ok = False
+                            out["pakete"].append(eintrag)
+                        if alle_ok:
+                            fertig.append(bs["id"])
+                finally:
+                    otto.OttoInstanzFreigeben(inst)
+            if ablegen is not None:
+                ablegen([p for p in out["pakete"] if "xml" in p])
+            if bestaetigung is not None and fertig:
+                best = _vorgang(lib, bestaetigung(fertig), elstam.elstam_datenart("bestaetigung"),
+                                ERIC_VALIDIERE | ERIC_SENDE, None, krypto)
+                out["bestaetigung"] = best
+                if best["ok"]:
+                    out["bestaetigt"] = [b["id"] for b in elstam.bestaetigung_lesen(best["serverantwort"] or best["rueckgabe"])
+                                         if b["code"] == 0]
+            out["ok"] = all("fehler" not in p for p in out["pakete"])
+        finally:
+            lib.EricCloseHandleToCertificate(handle.value)
+    return out

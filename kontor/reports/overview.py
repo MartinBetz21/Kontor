@@ -27,7 +27,9 @@ def overview(ctx: Ctx) -> dict:
     drafts = docs.list_documents(ctx, status="entwurf")
     inbox = ctx.conn.execute("SELECT COUNT(*) FROM receipts WHERE status = 'eingang'").fetchone()[0]
     period = period_of(today, md.get_settings(ctx)["ustva_period"])
+    from ..services.payments import unbilled
     from ..services.pipeline import open_followups
     return {"today": today.isoformat(), "followups": open_followups(ctx), "months": months, "open_invoices": open_invoices, "drafts": drafts,
             "inbox": inbox, "period": period, "estimate": ustva(ctx, period)["zahllast"],
-            "deadline": deadline(period).isoformat(), "profit_ytd": euer(ctx, today.year)["gewinn"]}
+            "deadline": deadline(period).isoformat(), "profit_ytd": euer(ctx, today.year)["gewinn"],
+            "unbilled": unbilled(ctx)}

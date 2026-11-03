@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}{{ a.titel }}{% endblock %}
+{% block main %}
+<p><a href="{{ M }}/freigaben">← Freigaben</a></p>
+<h1>{{ a.titel }}</h1>
+<p>{{ a.erklaerung }}</p>
+{% if a.notiz %}<p class="muted">Notiz: {{ a.notiz }}</p>{% endif %}
+<p class="muted small">Angelegt {{ a.erstellt_am[:16].replace("T", " ") }} von {{ "Claude (Kommandozeile)" if a.erstellt_von == "cli" else "dir" }}{% if a.erledigt_am %} · erledigt {{ a.erledigt_am[:16].replace("T", " ") }}{% endif %} · Status: {{ a.status }}</p>
+{% if fehler %}<p class="error">{{ fehler }}</p>{% endif %}
+
+<h2>Werte, wie sie gesendet werden</h2>
+<table class="list"><tr><th>Feld</th><th class="num">Wert</th></tr>
+{% for label, wert in zeilen %}<tr><td>{{ label }}</td><td class="num">{{ wert }}</td></tr>{% else %}<tr><td colspan="2" class="muted">keine</td></tr>{% endfor %}</table>
+
+{% if a.status == "offen" %}
+<form method="post" action="{{ M }}/freigaben/{{ a.id }}/pruefen"><div class="actions"><button class="secondary">Jetzt prüfen</button>{% if a.art == "ustva" %} <a class="button secondary" href="{{ M }}/abschluss?zeitraum={{ a.parameter.zeitraum }}">Monatsabschluss ansehen</a>{% endif %}</div></form>
+<p class="muted small">Rechnet die Werte neu und lässt ERiC den Datensatz auf deinem Mac prüfen. Es geht nichts an ELSTER.</p>
+{% if pruefung %}<div class="note">
+  <p><b>{{ "✓" if pruefung.ok else "✗" }} {{ pruefung.text }}</b></p>
+  <p>{% if pruefung.geaendert %}<span class="error-text">Werte haben sich seit dem Anlegen geändert: so geht der Auftrag nicht raus, Claude legt ihn neu an.</span>{% else %}Werte unverändert seit dem Anlegen.{% endif %}</p>
+  {% if pruefung.meldungen %}<ul>{% for m in pruefung.meldungen %}<li><small>{{ m }}</small></li>{% endfor %}</ul>{% endif %}
+  {% if pruefung.geaendert and pruefung.jetzt %}<table class="list"><tr><th>Feld (jetzt)</th><th class="num">Wert</th></tr>
+  {% for label, wert in pruefung.jetzt %}<tr><td>{{ label }}</td><td class="num">{{ wert }}</td></tr>{% endfor %}</table>{% endif %}
+</div>{% endif %}
+{% else %}
+<h2>Ergebnis</h2>
+<p>{% if a.status == "gesendet" %}✓ {{ a.ergebnis.text }}{% if a.ergebnis.transferticket %} · Transferticket <code>{{ a.ergebnis.transferticket }}</code>{% endif %}
+{% elif a.status == "abgelehnt" %}<span class="error-text">✗ {{ a.ergebnis.text }}</span>
+{% elif a.status == "veraltet" %}Nicht gesendet: Werte hatten sich geändert.
+{% else %}Verworfen: {{ a.ergebnis.grund }}{% endif %}</p>
+{% for m in a.ergebnis.meldungen or [] %}<p><small>{{ m }}</small></p>{% endfor %}
+<p>{% if a.ergebnis.protokoll %}<a class="button secondary" href="{{ M }}/freigaben/{{ a.id }}/protokoll.pdf" target="_blank">ELSTER-Protokoll (PDF, eigenes Fenster)</a>{% endif %}
+{% if a.art == "ustva" %} <a class="button secondary" href="{{ M }}/abschluss?zeitraum={{ a.parameter.zeitraum }}">Monatsabschluss ansehen</a>{% endif %}</p>
+{% endif %}
+{% endblock %}

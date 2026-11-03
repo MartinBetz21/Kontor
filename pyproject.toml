@@ -15,7 +15,7 @@ kontor = "kontor.cli.main:main"
 include = ["kontor*"]
 
 [tool.setuptools.package-data]
-kontor = ["render/templates/*.html", "render/assets/*.css", "render/assets/fonts/*", "ui/templates/*.html", "ui/static/*"]
+kontor = ["render/templates/*.html", "render/assets/*.css", "render/assets/fonts/*", "ui/templates/*.html", "ui/static/*", "core/pap/*.xml", "core/sv_werte.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

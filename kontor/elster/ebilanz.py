@@ -60,6 +60,7 @@ GUV = [
     ("4310", "4399", "is.netIncome.regular.operatingTC.grossTradingProfit.totalOutput.netSales.grossSales.untaxable"),
     ("4000", "4799", "is.netIncome.regular.operatingTC.grossTradingProfit.totalOutput.netSales.grossSales.generalRateVAT"),
     ("4840", "4849", "is.netIncome.regular.operatingTC.otherOpRevenue.currGains"),
+    ("4915", "4915", "is.netIncome.regular.operatingTC.otherOpRevenue.revalCurrAss.misc"),   # Bitcoin-Zuschreibung
     ("4930", "4939", "is.netIncome.regular.operatingTC.otherOpRevenue.releaseProv"),
     ("4800", "4999", "is.netIncome.regular.operatingTC.otherOpRevenue.miscellaneous"),
     ("5920", "5959", "is.netIncome.regular.operatingTC.grossTradingProfit.materialServices.services.UStG13bDedInputTax"),
@@ -72,7 +73,8 @@ GUV = [
     ("6100", "6199", "is.netIncome.regular.operatingTC.staff.social.other"),
     ("6260", "6269", "is.netIncome.regular.operatingTC.deprAmort.fixAss.tan.lowValueAs"),
     ("6200", "6299", "is.netIncome.regular.operatingTC.deprAmort.fixAss.tan.other"),
-    ("6960", "6960", "is.netIncome.regular.operatingTC.deprAmort.currAss.misc"),   # Bitcoin auf Niederstwert
+    ("6910", "6910", "is.netIncome.regular.operatingTC.deprAmort.currAss.misc"),   # Bitcoin auf Niederstwert
+    ("6960", "6960", "is.netIncome.regular.operatingTC.deprAmort.currAss.misc"),
     ("6310", "6319", "is.netIncome.regular.operatingTC.otherCost.leaseFix.other"),
     ("6400", "6449", "is.netIncome.regular.operatingTC.otherCost.insurance"),
     ("6500", "6599", "is.netIncome.regular.operatingTC.otherCost.vehicles"),

@@ -56,6 +56,70 @@ def record_payment(ctx: Ctx, document_id: int, pay_date: str, amount: int | str,
     return cur.lastrowid
 
 
+def record_unbilled(ctx: Ctx, pay_date: str, amount: int | str, tax_rate: str, note: str) -> int:
+    """Zahlungseingang, zu dem es noch keine abgeschlossene Rechnung gibt (z. B. Zahlungslink, Anschrift fehlt). Die
+    Umsatzsteuer entsteht mit dem Eingang (Istversteuerung) und zählt sofort; die Rechnung übernimmt die Zahlung
+    später mit `link_unbilled`. Die Notiz sagt, von wem und wofür."""
+    from decimal import Decimal
+
+    from ..core.money import round_cents
+    day = _iso(pay_date, "Zahlungsdatum")
+    cents = md.to_cents(amount)
+    if not day or cents <= 0:
+        raise KontorError("Datum und positiven Betrag angeben.")
+    if tax_rate not in ("19", "7"):
+        raise KontorError("Steuersatz 19 oder 7.")
+    if not (note or "").strip():
+        raise KontorError("Notiz angeben: von wem, wofür, warum noch keine Rechnung.")
+    net = round_cents(Decimal(cents) * 100 / (100 + Decimal(tax_rate)))
+    with tx(ctx.conn):
+        cur = ctx.conn.execute("INSERT INTO payments (pay_date, amount, kind, note) VALUES (?,?,?,?)",
+                               (day, cents, "einnahme", note.strip()))
+        ctx.conn.execute("INSERT INTO payment_parts (payment_id, tax_rate, net, tax) VALUES (?,?,?,?)",
+                         (cur.lastrowid, tax_rate, net, cents - net))
+        audit.log(ctx.conn, ctx.actor, "zahlung_ohne_rechnung", "zahlung", cur.lastrowid,
+                  {"datum": day, "betrag": cents, "steuersatz": tax_rate, "notiz": note.strip()})
+    return cur.lastrowid
+
+
+def unbilled(ctx: Ctx) -> list[dict]:
+    """Zahlungseingänge, zu denen die Rechnung noch fehlt."""
+    return [dict(r) for r in ctx.conn.execute(
+        "SELECT * FROM payments WHERE kind = 'einnahme' AND document_id IS NULL AND bank_transaction_id IS NULL "
+        "AND origin = 'ledger' ORDER BY pay_date, id")]
+
+
+def link_unbilled(ctx: Ctx, payment_id: int, document_id: int) -> None:
+    """Die abgeschlossene Rechnung übernimmt eine Zahlung ohne Rechnung. Betrag und Steueraufteilung müssen zu dem
+    passen, was die Rechnung für diesen Betrag ergäbe; die schon angemeldete Steuer ändert sich dadurch nicht."""
+    row = ctx.conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+    if row is None or row["kind"] != "einnahme":
+        raise KontorError(f"Zahlungseingang {payment_id} gibt es nicht.")
+    if row["document_id"] is not None:
+        raise KontorError(f"Zahlung {payment_id} gehört schon zu einer Rechnung.")
+    d = docs.get_document(ctx, document_id)
+    if d["kind"] in ("angebot", "storno") or d["status"] in ("entwurf", "storniert"):
+        raise KontorError("Nur eine abgeschlossene, nicht stornierte Rechnung kann die Zahlung übernehmen.")
+    if row["amount"] > d["open"]:
+        raise KontorError(f"Zahlung {fmt_eur(row['amount'])} übersteigt den offenen Betrag {fmt_eur(d['open'])}.")
+    snap = json.loads(d["snapshot_json"])
+    paid_parts = [dict(r) for r in ctx.conn.execute(
+        "SELECT pp.tax_rate, pp.net, pp.tax FROM payment_parts pp JOIN payments p ON p.id = pp.payment_id "
+        "WHERE p.document_id = ?", (document_id,))]
+    soll = sorted((p.rate, p.net, p.tax) for p in allocate(row["amount"], remaining_by_rate(
+        snap["totals"]["groups"], snap["prepaid"], paid_parts)))
+    ist = sorted((r["tax_rate"], r["net"], r["tax"]) for r in ctx.conn.execute(
+        "SELECT tax_rate, net, tax FROM payment_parts WHERE payment_id = ?", (payment_id,)))
+    if soll != ist:
+        raise KontorError("Steueraufteilung der Zahlung passt nicht zur Rechnung (Steuersatz oder Rundung).")
+    with tx(ctx.conn):
+        ctx.conn.execute("UPDATE payments SET document_id = ? WHERE id = ?", (document_id, payment_id))
+        if d["kind"] != "storno":
+            docs._set_status(ctx, document_id, payment_status(d["due"], d["paid"] + row["amount"]))
+        audit.log(ctx.conn, ctx.actor, "zahlung_verknuepfen", "dokument", document_id,
+                  {"zahlung": payment_id, "betrag": row["amount"]})
+
+
 def record_tax_payment(ctx: Ctx, pay_date: str, amount: int | str, note: str = "") -> int:
     day = _iso(pay_date, "Zahlungsdatum")
     cents = md.to_cents(amount)
@@ -71,15 +135,18 @@ def record_tax_payment(ctx: Ctx, pay_date: str, amount: int | str, note: str = "
 def delete_payment(ctx: Ctx, payment_id: int, reason: str) -> None:
     """Falsch erfasste Zahlung entfernen (nur der Mensch, mit Begründung im Protokoll). Gesperrte Monate blockiert der
     Trigger. Zahlungen zu Belegen ändern sich über „bezahlt am“ am Beleg. Ausnahme: Eine Zahlung, die eine
-    Bankzuordnung erzeugt hat, verschwindet mit dem Lösen dieser Zuordnung (Spec 18.7a), auch über die Kommandozeile."""
+    Bankzuordnung oder eine bestätigte Bitcoin-Kundenzahlung erzeugt hat, verschwindet mit dem Lösen dieser Zuordnung
+    bzw. dem Zurücksetzen der Bewegung zum Entwurf (Spec 18.7a, 18.14), auch über die Kommandozeile."""
     if not (reason or "").strip():
         raise KontorError("Zum Löschen einer Zahlung eine Begründung angeben.")
     row = ctx.conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
     if row is None:
         raise KontorError(f"Zahlung {payment_id} gibt es nicht.")
-    if not (row["source"] == "bank" and row["bank_transaction_id"] is not None
-            and not ctx.conn.execute("SELECT 1 FROM bank_assignments WHERE bank_transaction_id = ?",
-                                     (row["bank_transaction_id"],)).fetchone()):
+    bank_released = row["source"] == "bank" and row["bank_transaction_id"] is not None and not ctx.conn.execute(
+        "SELECT 1 FROM bank_assignments WHERE bank_transaction_id = ?", (row["bank_transaction_id"],)).fetchone()
+    btc_released = ctx.conn.execute("SELECT 1 FROM btc_movements WHERE payment_id = ? AND status = 'entwurf'",
+                                    (payment_id,)).fetchone()
+    if not (bank_released or btc_released):
         require_human(ctx)
     if row["kind"] == "ausgabe":
         raise KontorError("Zahlungen zu Belegen ändern sich über „bezahlt am“ am Beleg.")

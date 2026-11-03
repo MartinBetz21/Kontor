@@ -91,3 +91,55 @@ def test_wrong_payment_can_be_deleted_by_a_human_only(ctx, ui, invoice):
     d = docs.get_document(ctx, did)
     assert (d["status"], d["open"]) == ("abgeschlossen", 119000)
     assert ctx.conn.execute("SELECT COUNT(*) FROM payment_parts").fetchone()[0] == 0
+
+
+def test_einnahme_ohne_rechnung_zaehlt_und_wird_spaeter_verknuepft(ctx, ui, invoice):
+    """Geld kommt vor der Rechnung (z. B. Zahlungslink ohne Anschrift): die Umsatzsteuer entsteht mit dem Eingang
+    (Istversteuerung). Die Rechnung kommt später und übernimmt die Zahlung, statt sie doppelt zu zählen."""
+    from kontor.reports.euer import euer
+    from kontor.reports.ustva import ustva
+    with pytest.raises(KontorError, match="Notiz"):
+        pay.record_unbilled(ctx, "2026-09-15", "119,00", "19", "")
+    with pytest.raises(KontorError, match="Steuersatz"):
+        pay.record_unbilled(ctx, "2026-09-15", "119,00", "16", "Zahlungslink Kundin A")
+    pid = pay.record_unbilled(ctx, "2026-09-15", "119,00", "19", "Zahlungslink Kundin A, Rechnung folgt")
+    u = ustva(ctx, "2026-09")
+    assert u["exact"]["19"] == {"net": 10000, "tax": 1900} and u["fields"]["81"]["basis"] == 100
+    assert [e["number"] for e in u["details"]["einnahmen"]] == ["ohne Rechnung"]
+    assert euer(ctx, 2026)["einnahmen_netto"] == 10000
+    assert [p["id"] for p in pay.unbilled(ctx)] == [pid]
+
+    did = invoice(10000)                                      # 119,00 brutto
+    pay.link_unbilled(ctx, pid, did)
+    d = docs.get_document(ctx, did)
+    assert d["status"] == "bezahlt" and pay.unbilled(ctx) == []
+    assert ustva(ctx, "2026-09")["exact"]["19"] == {"net": 10000, "tax": 1900}       # nicht doppelt
+    assert euer(ctx, 2026)["einnahmen_netto"] == 10000
+    with pytest.raises(KontorError, match="schon"):
+        pay.link_unbilled(ctx, pid, did)
+
+
+def test_verknuepfen_nur_wenn_betrag_und_steuer_passen(ctx, ui, invoice):
+    pid = pay.record_unbilled(ctx, "2026-09-15", "200,00", "19", "Kundin B")
+    with pytest.raises(KontorError, match="offenen Betrag"):
+        pay.link_unbilled(ctx, pid, invoice(10000))
+    pid7 = pay.record_unbilled(ctx, "2026-09-11", "107,00", "7", "Kundin C")
+    with pytest.raises(KontorError, match="Steuer"):
+        pay.link_unbilled(ctx, pid7, invoice(10000))
+
+
+def test_cli_einnahme_ohne_rechnung(ctx, tmp_path, capsys):
+    import json
+
+    from kontor.cli.main import main
+    j = tmp_path / "e.json"
+    j.write_text('{"pay_date": "2026-09-15", "amount": "119,00", "tax_rate": "19", "note": "Kundin A"}', encoding="utf-8")
+    assert main(["zahlung", "ohne-rechnung", "--json", str(j)]) == 0
+    pid = json.loads(capsys.readouterr().out)["id"]
+    assert pay.unbilled(ctx)[0]["id"] == pid
+
+
+def test_uebersicht_zeigt_zahlungen_ohne_rechnung(ctx):
+    from kontor.reports.overview import overview
+    pay.record_unbilled(ctx, "2026-09-15", "119,00", "19", "Zahlungslink Kundin A")
+    assert [p["note"] for p in overview(ctx)["unbilled"]] == ["Zahlungslink Kundin A"]

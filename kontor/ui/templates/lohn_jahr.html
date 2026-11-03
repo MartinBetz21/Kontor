@@ -1,0 +1,90 @@
+{% extends "base.html" %}{% block title %}Lohn {{ jahr }}{% endblock %}
+{% block main %}
+<h1>Lohn {{ jahr }}</h1>
+{% set tab = "jahr" %}{% set monat = "" %}<nav class="tabs"><a href="{{ M }}/lohn?monat={{ (monat or (jahr ~ '-01')) }}" class="{{ 'on' if tab == 'monat' }}">Abrechnung</a><a href="{{ M }}/lohn/jahr?jahr={{ (jahr or monat[:4]) }}" class="{{ 'on' if tab == 'jahr' }}">Meldungen &amp; ELStAM</a><a href="{{ M }}/lohn/mitarbeiter/neu" class="{{ 'on' if tab == 'neu' }}">Mitarbeiter anlegen</a></nav>
+<form method="get" class="filters"><label>Jahr<input name="jahr" value="{{ jahr }}" inputmode="numeric" style="width:6em" onchange="this.form.submit()"></label>
+  <a href="#elstam">ELStAM</a> · <a href="#senden">Senden</a> · <a href="{{ M }}/export/lohnjournal/{{ jahr }}.csv">Lohnjournal als CSV</a></form>
+{% if findings %}<div class="error"><ul>{% for f in findings %}<li>{{ f }}</li>{% endfor %}</ul></div>{% endif %}
+{% if fehler %}<p class="error">{{ fehler }}</p>{% endif %}
+{% if pruefung %}<h3>Prüfung {{ pruefung.titel }}: {{ "fehlerfrei" if pruefung.ok else "mit Fehlern" }}</h3>
+<p class="{{ 'muted' if pruefung.ok else 'error' }}">{{ pruefung.text }}</p>
+{% if pruefung.meldungen %}<ul>{% for x in pruefung.meldungen %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endif %}
+{% if ergebnis %}<h3>{{ "Testversand" if ergebnis.test else "Übermittlung" }} {{ ergebnis.titel }}: {{ "angenommen" if ergebnis.ok else "abgelehnt" }}</h3>
+<p class="{{ 'muted' if ergebnis.ok else 'error' }}">{{ ergebnis.text }}{% if ergebnis.transferticket %} · Transferticket <code>{{ ergebnis.transferticket }}</code>{% endif %}</p>
+{% if ergebnis.meldungen %}<ul>{% for x in ergebnis.meldungen %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endif %}
+
+<h2>Lohnsteuer-Anmeldungen <span class="muted">· {{ s.lohn_anmeldezeitraum }}</span></h2>
+<table class="list"><tr><th>Zeitraum</th><th>fällig</th><th class="num">Arbeitnehmer</th><th class="num">Lohnsteuer</th><th class="num">Soli</th><th class="num">Kirchensteuer</th><th class="num">Gesamt</th><th>gesendet</th><th></th></tr>
+{% for z in zeitraeume %}<tr><td><b>{{ z.name }}</b>{% if z.offen %}<br><small class="muted">Entwurf, noch nicht festgeschrieben</small>{% endif %}</td><td>{{ z.faellig|date_de }}</td>
+  <td class="num">{{ z.kz.arbeitnehmer }}</td><td class="num">{{ z.kz.lst|eur }}</td><td class="num">{{ z.kz.soli|eur }}</td><td class="num">{{ (z.kz.kist.values()|sum + z.kz.pauschal_kist)|eur }}</td><td class="num"><b>{{ z.kz.gesamt|eur }}</b></td>
+  <td>{% if z.gesendet %}{{ z.gesendet.am[:10]|date_de }}{% if z.gesendet.transferticket.startswith("extern:") %} ({{ z.gesendet.transferticket[8:] }}){% endif %}{% if z.abweichung %} <span class="error">weicht ab</span>{% endif %}{% else %}–{% endif %}</td>
+  <td><form method="post" action="{{ M }}/lohn/lsta/pruefen" class="inline"><input type="hidden" name="jahr" value="{{ jahr }}"><input type="hidden" name="zeitraum" value="{{ z.zeitraum }}"><button class="small secondary">Prüfen</button></form>
+    {% if not z.gesendet and z.monate[-1] < heute[:7] %}<form method="post" action="{{ M }}/lohn/lsta/extern" class="inline" data-ask="{{ z.name }} {{ jahr }} als von einem anderen Programm gesendet vermerken?"><input type="hidden" name="jahr" value="{{ jahr }}"><input type="hidden" name="zeitraum" value="{{ z.zeitraum }}"><input name="notiz" value="Lexware" size="7"><button class="small secondary">schon gesendet</button></form>{% endif %}</td></tr>{% endfor %}</table>
+
+<h2>Lohnsteuerbescheinigungen</h2>
+<table class="list"><tr><th>Mitarbeiter</th><th>Zeitraum</th><th class="num">Zeile 3 Brutto</th><th class="num">Zeile 4 LSt</th><th class="num">Zeile 5 Soli</th><th class="num">Zeile 6 KiSt</th><th class="num">RV AN / AG</th><th>gesendet</th><th></th></tr>
+{% for b in lstb %}<tr><td>{{ b.name }}</td>{% if b.fehler %}<td colspan="7" class="muted">{{ b.fehler }}</td>{% else %}
+  <td>{{ b.von|date_de }} – {{ b.bis|date_de }}</td><td class="num">{{ b.zeile3_brutto|eur }}</td><td class="num">{{ b.zeile4_lst|eur }}</td><td class="num">{{ b.zeile5_soli|eur }}</td><td class="num">{{ b.zeile6_kist|eur }}</td><td class="num">{{ b.zeile23a_rv_an|eur }} / {{ b.zeile22a_rv_ag|eur }}</td>
+  <td>{% for g in b.gesendet if g.ok and not g.test %}{{ g.am[:10]|date_de }}{% if not loop.last %}, {% endif %}{% else %}–{% endfor %}</td>{% endif %}
+  <td><a href="{{ M }}/lohn/lohnkonto/{{ b.mitarbeiter_id }}/{{ jahr }}.pdf" target="_blank">Lohnkonto</a>{% if not b.fehler %} · <a href="{{ M }}/lohn/lohnzettel/{{ b.mitarbeiter_id }}/{{ jahr }}.pdf" target="_blank">Lohnzettel</a> <form method="post" action="{{ M }}/lohn/lstb/pruefen" class="inline"><input type="hidden" name="jahr" value="{{ jahr }}"><input type="hidden" name="mitarbeiter" value="{{ b.mitarbeiter_id }}"><button class="small secondary">Prüfen</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="9" class="muted">Keine Mitarbeiter.</td></tr>{% endfor %}</table>
+<p class="muted">Die Lohnsteuerbescheinigung geht bis Ende Februar des Folgejahres an das Finanzamt (§ 41b Abs. 1 EStG). Den Ausdruck für den Arbeitnehmer gibt es als „Lohnzettel“.</p>
+
+<h3 id="senden">Senden</h3>
+{% if not s.elster_hersteller_id or not s.elster_zertifikat %}<p class="muted">Senden braucht die eigene Hersteller-ID und den Pfad zum ELSTER-Zertifikat (<a href="{{ M }}/einstellungen">Einstellungen → ELSTER</a>). Prüfen geht schon ohne.</p>
+{% else %}<p class="muted">Erst einen Testversand, dann echt senden. Die PIN wird nicht gespeichert.</p>
+<form method="post" action="{{ M }}/lohn/senden" class="grid" data-ask="Datensatz an ELSTER senden?"><input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="jahr" value="{{ jahr }}">
+  <label>Was<select name="art"><option value="lsta">Lohnsteuer-Anmeldung</option><option value="lstb">Lohnsteuerbescheinigung</option></select></label>
+  <label>Zeitraum (Anmeldung)<select name="zeitraum">{% for z in zeitraeume %}<option value="{{ z.zeitraum }}">{{ z.name }}</option>{% endfor %}</select></label>
+  <label>Mitarbeiter (Bescheinigung)<select name="mitarbeiter">{% for m in mitarbeiter %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}</select></label>
+  <label>Modus<select name="modus"><option value="test">Testversand</option><option value="echt">Echt senden</option></select></label>
+  <label>PIN des Zertifikats<input type="password" name="pin" autocomplete="off" required></label>
+  <p class="wide muted">Datenschutz: Die ERiC-Lizenz verpflichtet den Softwarehersteller, den Nutzern vor der Nutzung die Datenschutzhinweise der Finanzverwaltung zur Kenntnis zu bringen. Wer mit Kontor über ERiC sendet, ist selbst dieser Hersteller. Den aktuellen Text gibt es im ELSTER-Entwicklerbereich (https://www.elster.de/eportal/infoseite/entwickler).</p>
+  <label class="wide"><span><input type="checkbox" name="datenschutz" value="1" required> Ich habe die aktuellen Datenschutzhinweise der Finanzverwaltung gelesen.</span></label>
+  <div class="actions"><button>Senden</button></div></form>{% endif %}
+
+<h3>Gesendet</h3>
+<table class="list"><tr><th>Am</th><th>Was</th><th>Zeitraum / Mitarbeiter</th><th>Art</th><th>Ergebnis</th><th>Transferticket</th></tr>
+{% for u in meldungen %}<tr><td>{{ u.am[:16].replace("T", " ") }}</td><td>{{ "Anmeldung" if u.art == "lsta" else "Bescheinigung" }}</td><td>{{ u.bezug }}</td><td>{{ "Test" if u.test else "echt" }}</td><td>{{ "angenommen" if u.ok else "abgelehnt (" ~ u.code ~ ")" }}</td><td><code>{{ u.transferticket }}</code></td></tr>
+{% else %}<tr><td colspan="6" class="muted">Noch nichts gesendet.</td></tr>{% endfor %}</table>
+
+<h2 id="elstam">ELStAM <span class="muted">· Lohnsteuerabzugsmerkmale vom Bundeszentralamt für Steuern</span></h2>
+<p class="muted">Anmelden (neuer Mitarbeiter), Wechsel des Datenübermittlers (Umstieg aus einem anderen Lohnprogramm), Abmelden (Austritt). Die Antwort kommt nicht sofort, sondern als Liste im ELSTER-Postfach: danach „Postfach abholen“. Empfangene Merkmale übernimmst du hier; erst dann rechnet Kontor mit ihnen.</p>
+<table class="list"><tr><th>Empfangen</th><th>Mitarbeiter</th><th>Art</th><th>gültig ab</th><th>Merkmale</th><th>weicht ab</th><th></th></tr>
+{% for e in elstam %}<tr class="{{ 'muted' if e.uebernommen_am or e.verworfen_grund }}"><td>{{ e.empfangen_am[:10]|date_de }}</td><td>{{ e.name or e.idnr }}</td><td>{{ e.art }}{% if e.daten.text %}<br><small>{{ e.daten.text }}</small>{% endif %}</td><td>{{ e.gueltig_ab|date_de }}</td>
+  <td>{% for k, v in e.merkmale.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+  <td>{% for k, v in e.abweichung.items() %}<b>{{ k }}</b>{% if not loop.last %}, {% endif %}{% else %}–{% endfor %}</td>
+  <td>{% if e.uebernommen_am %}übernommen {{ e.uebernommen_am[:10]|date_de }}{% elif e.verworfen_grund %}verworfen: {{ e.verworfen_grund }}{% elif e.merkmale and e.mitarbeiter_id %}
+    <form method="post" action="{{ M }}/lohn/elstam/{{ e.id }}/uebernehmen" class="inline"><input type="hidden" name="jahr" value="{{ jahr }}"><button class="small">übernehmen</button></form>
+    <form method="post" action="{{ M }}/lohn/elstam/{{ e.id }}/verwerfen" class="inline"><input type="hidden" name="jahr" value="{{ jahr }}"><input name="grund" placeholder="Grund" size="8" required><button class="small secondary">verwerfen</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Noch nichts empfangen.</td></tr>{% endfor %}</table>
+<form method="post" action="{{ M }}/lohn/elstam/pruefen" class="inline"><input type="hidden" name="jahr" value="{{ jahr }}">
+  <select name="art">{% for k, t in elstam_arten.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}</select>
+  <select name="mitarbeiter">{% for m in mitarbeiter %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}</select>
+  <input name="referenzdatum" value="{{ heute }}" size="10" title="Referenzdatum: ab wann die ELStAM an Kontor gehen">
+  <button class="small secondary">Anfrage prüfen</button></form>
+{% if s.elster_hersteller_id and s.elster_zertifikat %}
+<form method="post" action="{{ M }}/lohn/elstam/senden" class="grid" data-ask="An ELSTER senden bzw. Postfach abholen?"><input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="jahr" value="{{ jahr }}">
+  <label>Was<select name="art">{% for k, t in elstam_arten.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}<option value="abholen">Postfach abholen</option></select></label>
+  <label>Mitarbeiter<select name="mitarbeiter">{% for m in mitarbeiter %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}</select></label>
+  <label>Referenzdatum<input name="referenzdatum" value="{{ heute }}" placeholder="JJJJ-MM-TT"></label>
+  <label>Modus<select name="modus"><option value="test">Testversand</option><option value="echt">Echt senden</option></select></label>
+  <label>PIN des Zertifikats<input type="password" name="pin" autocomplete="off" required></label>
+  <label class="wide"><span><input type="checkbox" name="datenschutz" value="1" required> Ich habe die aktuellen Datenschutzhinweise der Finanzverwaltung gelesen.</span></label>
+  <div class="actions"><button>Senden</button></div></form>{% endif %}
+{% if elstam_vorgaenge %}<table class="list"><tr><th>Am</th><th>Vorgang</th><th>Art</th><th>Ergebnis</th><th>Transferticket</th></tr>
+{% for v in elstam_vorgaenge %}<tr><td>{{ v.am[:16].replace("T", " ") }}</td><td>{{ elstam_arten.get(v.art, "Postfach abholen") }}</td><td>{{ "Test" if v.test else "echt" }}</td><td>{{ "ok" if v.ok else "abgelehnt (" ~ v.code ~ ")" }} {{ v.text }}</td><td><code>{{ v.transferticket }}</code></td></tr>{% endfor %}</table>{% endif %}
+
+<h2>Lohnkosten {{ jahr }}</h2>
+<table class="list"><tr><th>Mitarbeiter</th><th class="num">Brutto</th><th class="num">AG-Anteile SV</th><th class="num">Umlagen</th><th class="num">Pauschalabgaben</th><th class="num">Zuschüsse</th><th class="num">Kosten gesamt</th></tr>
+{% for e in kosten.mitarbeiter %}{% set x = e.summe %}<tr><td>{{ e.name }}</td><td class="num">{{ x.brutto|eur }}</td><td class="num">{{ x.sv_ag|eur }}</td><td class="num">{{ (x.u1 + x.u2 + x.insolvenz)|eur }}</td><td class="num">{{ (x.kv_pauschal + x.rv_pauschal + x.pauschsteuer + x.pauschal_lst + x.pauschal_soli + x.pauschal_kist)|eur }}</td><td class="num">{{ (x.pkv_zuschuss + x.pv_zuschuss)|eur }}</td><td class="num"><b>{{ x.ag_kosten|eur }}</b></td></tr>
+{% else %}<tr><td colspan="7" class="muted">Noch nichts festgeschrieben.</td></tr>{% endfor %}
+{% set x = kosten.summe %}<tr><td><b>Summe</b></td><td class="num">{{ x.brutto|eur }}</td><td class="num">{{ x.sv_ag|eur }}</td><td class="num">{{ (x.u1 + x.u2 + x.insolvenz)|eur }}</td><td class="num">{{ (x.kv_pauschal + x.rv_pauschal + x.pauschsteuer + x.pauschal_lst + x.pauschal_soli + x.pauschal_kist)|eur }}</td><td class="num">{{ (x.pkv_zuschuss + x.pv_zuschuss)|eur }}</td><td class="num"><b>{{ x.ag_kosten|eur }}</b></td></tr></table>
+<table class="list"><tr>{% for mo, v in kosten.monate.items() %}<th class="num">{{ mo[5:] }}</th>{% endfor %}</tr><tr>{% for mo, v in kosten.monate.items() %}<td class="num">{{ v|eur }}</td>{% endfor %}</tr></table>
+
+<h2>Lohnjournal {{ jahr }}</h2>
+<table class="list"><tr><th>Monat</th><th>Mitarbeiter</th><th class="num">Brutto</th><th class="num">LSt</th><th class="num">Soli</th><th class="num">KiSt</th><th class="num">SV AN</th><th class="num">SV AG</th><th class="num">Netto</th><th class="num">Auszahlung</th><th></th></tr>
+{% for r in j.zeilen %}{% set x = r.summen %}<tr><td>{{ r.monat }}</td><td>{{ r.name }}</td><td class="num">{{ x.brutto|eur }}</td><td class="num">{{ x.lst|eur }}</td><td class="num">{{ x.soli|eur }}</td><td class="num">{{ (x.kist + x.kist_ehegatte)|eur }}</td><td class="num">{{ x.sv_an|eur }}</td><td class="num">{{ x.sv_ag|eur }}</td><td class="num">{{ x.netto|eur }}</td><td class="num">{{ x.auszahlung|eur }}</td><td><a href="{{ M }}/lohn/abrechnung/{{ r.id }}">ansehen</a></td></tr>
+{% else %}<tr><td colspan="11" class="muted">Noch nichts festgeschrieben.</td></tr>{% endfor %}
+{% set x = j.summe %}<tr><td colspan="2"><b>Summe</b></td><td class="num">{{ x.brutto|eur }}</td><td class="num">{{ x.lst|eur }}</td><td class="num">{{ x.soli|eur }}</td><td class="num">{{ (x.kist + x.kist_ehegatte)|eur }}</td><td class="num">{{ x.sv_an|eur }}</td><td class="num">{{ x.sv_ag|eur }}</td><td class="num">{{ x.netto|eur }}</td><td class="num">{{ x.auszahlung|eur }}</td><td></td></tr></table>
+{% endblock %}

@@ -10,7 +10,7 @@ from ..services import masterdata as md
 
 def _from_bank(ctx: Ctx, a: str, b: str, exact: dict) -> tuple[list[dict], list[dict]]:
     """Bilanz-Mandanten (Spec 18.7a): Vorsteuer, Reverse Charge und Umsatzsteuer aus Bankzuordnungen ohne Rechnung
-    kommen aus der Bank, nicht aus EÜR-Belegen. Datum ist das Belegdatum, wenn ein Beleg verknüpft ist, sonst die
+    kommen aus der Bank, nicht aus EÜR-Belegen, dazu Eingangsrechnungen, die in Bitcoin bezahlt sind (18.14). Datum ist das Belegdatum, wenn ein Beleg verknüpft ist, sonst die
     Abbuchung. Rechnungen und ihre Zahlungen laufen wie bei der EÜR über payment_parts (Ist-Versteuerung)."""
     from decimal import Decimal
 
@@ -36,6 +36,21 @@ def _from_bank(ctx: Ctx, a: str, b: str, exact: dict) -> tuple[list[dict], list[
         elif key in ("rc_eu", "rc_drittland") and g < 0:
             rc.append({"id": t["receipt_id"], "receipt_date": t["tag"], "supplier": t["supplier"], "net": -g,
                        "tax": round_cents(Decimal(-g) * 19 / 100), "tax_kind": key})
+    if md.has(ctx, "bitcoin"):                         # Eingangsrechnung in Bitcoin bezahlt (Spec 18.14)
+        for m in ctx.conn.execute(
+                "SELECT m.*, COALESCE(r.receipt_date, m.datum) AS tag, COALESCE(r.supplier, m.notiz) AS supplier "
+                "FROM btc_movements m LEFT JOIN receipts r ON r.id = m.receipt_id "
+                "WHERE m.status = 'bestaetigt' AND m.art = 'zahlung'").fetchall():
+            if not (a <= m["tag"] <= b):
+                continue
+            key, g = m["steuer"], -(m["eur"] or 0)
+            if key in ("19", "7"):
+                net, tax = _split(ctx, g, key, m["receipt_id"])
+                vorsteuer.append({"id": m["receipt_id"], "receipt_date": m["tag"], "supplier": m["supplier"],
+                                  "net": -net, "tax": -tax})
+            elif key in ("rc_eu", "rc_drittland"):
+                rc.append({"id": m["receipt_id"], "receipt_date": m["tag"], "supplier": m["supplier"], "net": -g,
+                           "tax": round_cents(Decimal(-g) * 19 / 100), "tax_kind": key})
     return vorsteuer, rc
 
 
@@ -51,7 +66,8 @@ def ustva(ctx: Ctx, spec: str) -> dict:
         if r["tax_rate"] in exact:
             exact[r["tax_rate"]] = {"net": r["net"], "tax": r["tax"]}
     einnahmen = [dict(r) for r in ctx.conn.execute(
-        "SELECT p.pay_date, p.amount, d.number, d.customer_json FROM payments p JOIN documents d ON d.id = p.document_id "
+        "SELECT p.pay_date, p.amount, COALESCE(d.number, 'ohne Rechnung') AS number, d.customer_json, p.note "
+        "FROM payments p LEFT JOIN documents d ON d.id = p.document_id "
         "WHERE p.kind = 'einnahme' AND p.origin = 'ledger' AND p.pay_date BETWEEN ? AND ? ORDER BY p.pay_date", (a, b))]
     # Nicht steuerbar (Kz 45) und EU-Reverse-Charge (Kz 21): im Monat der Leistung, nicht der Zahlung (Spec 18.4)
     ausland = [dict(r) for r in ctx.conn.execute(

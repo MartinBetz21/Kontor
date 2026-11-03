@@ -1,4 +1,5 @@
-"""Buchungen, die Kontor selbst aus Rechnungen, Zahlungen und Bankzuordnungen ableitet (Spec 18.7a, Art `auto`).
+"""Buchungen, die Kontor selbst aus Rechnungen, Zahlungen, Bankzuordnungen und bestätigten Bitcoin-Bewegungen ableitet
+(Spec 18.7a, 18.14, Art `auto`), dazu festgeschriebene Lohnabrechnungen.
 Deterministisch: dieselben Daten ergeben dieselben Zeilen. Solange ein Jahr offen ist, werden sie bei jeder Abfrage neu
 berechnet; beim Sperren schreibt journal.lock_year sie fest."""
 from __future__ import annotations
@@ -9,6 +10,7 @@ from decimal import Decimal
 from ..context import Ctx
 from ..core.money import round_cents
 from ..core.status import INVOICE_KINDS
+from . import masterdata as md
 
 RC_RATE = Decimal("19")
 REVENUE = {("inland", "19"): "4400", ("inland", "7"): "4300", ("inland", "0"): "4200",
@@ -105,5 +107,75 @@ def _split(ctx: Ctx, gross: int, key: str, receipt_id: int | None) -> tuple[int,
     return net, gross - net
 
 
+def _bitcoin(ctx: Ctx, year: int) -> list[dict]:
+    """Spec 18.14, Buchungstabelle. Datum = Übergangsdatum; Buchwerte aus der Bewertung des Jahres (Durchschnitt,
+    kumulative Rundung). Die Zahlung einer Kundenzahlung auf die Rechnung bucht _payments wie jede andere."""
+    if not md.has(ctx, "bitcoin"):
+        return []
+    from . import bitcoin as btc
+    b = btc.bewertung(ctx, year)
+    if b["fehler"]:
+        return []                                      # steht als Auffälligkeit da, gebucht wird nichts Falsches
+    k = btc.konten(ctx)
+    bw = {(a["bewegung"], a["teil"]): a["buchwert"] for a in b["abgaenge"]}
+    out: list[dict] = []
+
+    def pair(day: str, soll: str, haben: str, amount: int, text: str, ref: str, beleg: str = "") -> None:
+        if amount:
+            out.extend([_row(day, soll, amount, text, haben, beleg, ref), _row(day, haben, -amount, text, soll, beleg, ref)])
+
+    for m in btc.bewegungen(ctx, year, "bestaetigt"):
+        day, ref, art, eur = m["datum"], f"BTC{m['id']}", m["art"], m["eur"] or 0
+        text = f"Bitcoin {btc.LABEL[art]} {m['sats']} sats"
+        if art == "kauf":
+            pair(day, k["bestand"], k["verrechnung"], eur, text, ref)
+        elif art == "kundenzahlung":
+            pair(day, k["bestand"], "1200", eur, text, ref, m["nummer"] or "")
+            diff = (m["ak"] - eur) if m["ak"] is not None else 0     # Anschaffungskosten auf den Marktwert gesetzt
+            if diff > 0:
+                pair(day, k["bestand"], k["erloes"], diff, f"{text} Marktwert", ref)
+            elif diff < 0:
+                pair(day, k["verlust"], k["bestand"], -diff, f"{text} Marktwert", ref)
+        elif art == "verkauf":
+            pair(day, k["verrechnung"], k["erloes"], eur, f"{text} Erlös", ref)
+            pair(day, k["buchwert"], k["bestand"], bw[(m["id"], "betrag")], f"{text} Buchwert", ref)
+            pair(day, k["gebuehr"], k["verrechnung"], m["gebuehr_eur"], f"{text} Gebühr", ref)
+        elif art == "zahlung":
+            # wie ein Beleg über die Bank (18.7a), nur dass Bitcoin zum Buchwert abgeht; die Differenz zum Nennwert
+            # der getilgten Verbindlichkeit ist Abgangsergebnis
+            w, key, target = bw[(m["id"], "betrag")], m["steuer"], m["konto"]
+            if key in ("19", "7"):
+                net, tax = _split(ctx, -eur, key, m["receipt_id"])
+                out += [_row(day, target, -net, text, k["bestand"], ref=ref),
+                        _row(day, INPUT_VAT[key], -tax, text, k["bestand"], ref=ref)]
+            else:
+                out.append(_row(day, target, eur, text, k["bestand"], ref=ref))
+                if key in ("rc_eu", "rc_drittland"):
+                    rc = round_cents(Decimal(eur) * RC_RATE / 100)
+                    out += [_row(day, RC_INPUT, rc, f"§ 13b {text}", RC_OUTPUT, ref=ref),
+                            _row(day, RC_OUTPUT, -rc, f"§ 13b {text}", RC_INPUT, ref=ref)]
+            out.append(_row(day, k["bestand"], -w, text, target, ref=ref))
+            if eur > w:
+                out.append(_row(day, k["erloes"], w - eur, f"{text} Differenz", k["bestand"], ref=ref))
+            elif eur < w:
+                out.append(_row(day, k["buchwert"], w - eur, f"{text} Differenz", k["bestand"], ref=ref))
+        elif art == "verlust":
+            pair(day, k["verlust"], k["bestand"], bw[(m["id"], "betrag")], f"{text} Verlust", ref)
+        if (m["id"], "gebuehr") in bw:
+            pair(day, k["gebuehr"], k["bestand"], bw[(m["id"], "gebuehr")], f"{text} Netzwerkgebühr", ref)
+    stichtag, ref = f"{year}-12-31", f"BTC-{year}"
+    pair(stichtag, k["abschreibung"], k["bestand"], b["abschreibung"], "Bitcoin Abschreibung zum Stichtag", ref)
+    pair(stichtag, k["bestand"], k["zuschreibung"], b["zuschreibung"], "Bitcoin Zuschreibung zum Stichtag", ref)
+    return out
+
+
+def _lohn(ctx: Ctx, year: int) -> list[dict]:
+    """Festgeschriebene Lohnabrechnungen (Profilschalter lohn), Buchungssätze in services/lohn.buchungen."""
+    if not md.has(ctx, "lohn"):
+        return []
+    from . import lohn
+    return lohn.buchungen(ctx, year)
+
+
 def auto_lines(ctx: Ctx, year: int) -> list[dict]:
-    return _invoices(ctx, year) + _payments(ctx, year) + _bank(ctx, year)
+    return _invoices(ctx, year) + _payments(ctx, year) + _bank(ctx, year) + _bitcoin(ctx, year) + _lohn(ctx, year)

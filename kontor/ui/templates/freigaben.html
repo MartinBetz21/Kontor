@@ -1,0 +1,36 @@
+{% extends "base.html" %}{% block title %}Freigaben{% endblock %}
+{% block main %}
+<h1>Freigaben</h1>
+<p class="muted">Hier liegt, was an eine Behörde gehen soll. Vorbereitet und geprüft hat es Claude (oder du über die Kommandozeile). Du gibst frei, einzeln oder gesammelt; Kontor sendet mit dem Zertifikat und deiner PIN. Die PIN wird nicht gespeichert.</p>
+{% if fehler %}<p class="error">{{ fehler }}</p>{% endif %}
+{% if ergebnisse %}<div class="note"><b>Gesendet:</b><ul>{% for e in ergebnisse %}<li>{{ "✓" if e.ok else "✗" }} {{ e.titel }}: {{ e.text }}{% if e.transferticket %} · Transferticket <code>{{ e.transferticket }}</code>{% endif %}{% for m in e.meldungen or [] %}<br><small>{{ m }}</small>{% endfor %}</li>{% endfor %}</ul></div>{% endif %}
+
+{% if offen %}
+<form method="post" action="{{ M }}/freigaben" data-ask="Ausgewählte Aufträge jetzt senden?"><input type="hidden" name="confirm" value="{{ confirm }}">
+{% for a in offen %}<div class="auftrag">
+  <label class="auftrag-kopf"><input type="checkbox" name="auftrag" value="{{ a.id }}" checked> <b>{{ a.titel }}</b></label> <a class="button small secondary" href="{{ M }}/freigaben/{{ a.id }}">Details und prüfen</a>
+  <p>{{ a.erklaerung }}</p>
+  {% if a.notiz %}<p class="muted">Notiz: {{ a.notiz }}</p>{% endif %}
+  <p class="muted small">Angelegt {{ a.erstellt_am[:16].replace("T", " ") }} von {{ "Claude (Kommandozeile)" if a.erstellt_von == "cli" else "dir" }} · von ERiC geprüft
+    · <input name="grund" form="v{{ a.id }}" placeholder="Grund" size="10"> <button class="small secondary" form="v{{ a.id }}">verwerfen</button></p>
+</div>{% endfor %}
+{% if senden_moeglich %}
+<div class="grid">
+  <label>PIN des Zertifikats<input type="password" name="pin" autocomplete="off" required></label>
+  <label class="wide"><span><input type="checkbox" name="datenschutz" value="1" required> Ich habe die aktuellen Datenschutzhinweise der Finanzverwaltung gelesen (ELSTER-Entwicklerbereich).</span></label>
+  <div class="actions"><button>Ausgewählte freigeben und senden</button></div>
+</div>
+{% else %}<p class="error">Senden braucht Hersteller-ID und Zertifikat (<a href="{{ M }}/einstellungen">Einstellungen → ELSTER</a>).</p>{% endif %}
+</form>
+{% for a in offen %}<form id="v{{ a.id }}" method="post" action="{{ M }}/freigaben/{{ a.id }}/verwerfen"></form>{% endfor %}
+{% else %}<p class="note">Nichts zur Freigabe offen.</p>{% endif %}
+
+<h2>Erledigt</h2>
+<table class="list"><tr><th>Wann</th><th>Auftrag</th><th>Ergebnis</th></tr>
+{% for a in erledigt %}<tr><td>{{ (a.erledigt_am or a.erstellt_am)[:16].replace("T", " ") }}</td><td><a href="{{ M }}/freigaben/{{ a.id }}">{{ a.titel }}</a></td>
+  <td>{% if a.status == "gesendet" %}✓ angenommen{% if a.ergebnis.transferticket %} · <code>{{ a.ergebnis.transferticket }}</code>{% endif %}
+      {% elif a.status == "abgelehnt" %}<span class="error-text">✗ abgelehnt: {{ a.ergebnis.text }}</span>
+      {% elif a.status == "veraltet" %}nicht gesendet: Werte hatten sich geändert
+      {% else %}verworfen: {{ a.ergebnis.grund }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">Noch nichts.</td></tr>{% endfor %}</table>
+{% endblock %}

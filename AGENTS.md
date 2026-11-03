@@ -26,7 +26,7 @@ If the user wants to set up Kontor for their own business, follow [ONBOARDING.md
 1. Run `pytest -q` before and after every change. Add or change a test before you change behaviour.
 2. Never put real bookkeeping data into the repo: no `.db` files, receipts, PDFs of real invoices, certificates, ERiC, Hersteller-IDs, real names, addresses, tax numbers or IBANs. Tests use invented data only.
 3. Data folders live outside the repo. Use `KONTOR_DATA=<temp folder>` for experiments; `config.py` refuses a data folder inside the code tree.
-4. Amounts are integer cents. Finalized documents are immutable. Human-only actions (finalize, cancel, confirm receipts, lock periods, send to ELSTER) stay out of the CLI.
+4. Amounts are integer cents. Finalized documents are immutable. Human-only actions (finalize and cancel invoices, confirm receipts, lock periods) stay out of the CLI. Anything sent to an authority is prepared as an approval job (`kontor auftrag …`) and sent only by the human under „Freigaben“ with the certificate PIN; never try to send any other way. Payroll may be finalized and cancelled from the CLI when the user asks; the audit log names the actor.
 5. Do not branch on tenant ids. Add a profile switch in `services/masterdata.PROFILE_SWITCHES` instead.
 6. Schema changes are new numbered files in `migrations/`. Never edit an applied migration.
 7. The UI and messages are German. When you add a language, translate what is displayed, not stored values.

@@ -56,3 +56,26 @@ def test_receipt_with_two_tax_rates_in_ui(client):
     assert r.status_code == 303
     page = client.get(f"/belege/{rid}").text
     assert "55,90" in page and "gemischt" in page
+
+
+def test_confirm_from_the_list(client):
+    """Fertig vorbereitete Belege lassen sich in der Übersicht bestätigen, einzeln oder mehrere auf einmal, ohne den
+    Beleg zu öffnen. Unvollständige zeigen, was fehlt, und bleiben im Eingang."""
+    setup_master(client)
+    ids = []
+    for name in ("a", "b", "c"):
+        client.post("/belege/upload", files=[("dateien", (f"{name}.jpg", JPG + name.encode(), "image/jpeg"))])
+    page = client.get("/belege").text
+    ids = sorted({int(i) for i in re.findall(r"/belege/(\d+)\"", page)})
+    cat = re.search(r'<option value="(\d+)"\s*>Software und Abos', client.get(f"/belege/{ids[0]}").text).group(1)
+    for rid, lieferant in zip(ids[:2], ("Hoster", "Mailer")):
+        client.post(f"/belege/{rid}", data={"receipt_date": "2026-10-01", "supplier": lieferant, "gross": "11,90",
+                                            "tax_kind": "inland_19", "category_id": cat})
+    page = client.get("/belege").text
+    assert page.count('type="checkbox" name="ids"') == 2 and "fehlt: Belegdatum, Lieferant, Kategorie" in page
+    r = client.post("/belege/bestaetigen", data={"ids": [ids[0]]}, follow_redirects=True)
+    assert "1 bestätigt" in r.text
+    r = client.post("/belege/bestaetigen", data={"ids": [ids[1], ids[2]]}, follow_redirects=True)
+    assert "1 bestätigt" in r.text and "Zum Bestätigen fehlt" in r.text
+    geprueft = client.get("/belege?status=geprueft").text
+    assert "Hoster" in geprueft and "Mailer" in geprueft

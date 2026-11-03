@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Entgeltbescheinigung {{ a.monat|monat_de }}</title><link rel="stylesheet" href="{{ css_uri }}">
+<style>
+.kopf { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-bottom: 6mm; font-size: 9pt; }
+.merk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5mm 4mm; font-size: 8.5pt; margin: 0 0 4mm; }
+.merk div span { display: block; color: #666; font-size: 7.5pt; }
+table { margin: 2mm 0 4mm; font-size: 9pt; } td, th { padding: 1.2mm 2mm; }
+.summe td { border-top: 1.5px solid #1a1a1a; font-weight: 600; }
+.hinweis { font-size: 7.5pt; color: #666; }
+</style></head><body>
+{% set s = a.summen %}{% set m = a.mitarbeiter %}{% set k = a.merkmale %}{% set sv = a.sv %}
+<div class="top"><span></span><div class="sender">{{ ag.name }}<br>{{ ag.strasse }}<br>{{ ag.plz }} {{ ag.ort }}</div></div>
+<h1>Entgeltbescheinigung {{ a.monat|monat_de }}</h1>
+<p class="subject">Gilt als Entgeltbescheinigung nach § 108 Abs. 3 Satz 1 Gewerbeordnung. Bitte aufbewahren.</p>
+<div class="kopf">
+  <div><b>{{ a.name }}</b><br>{{ m.strasse }}<br>{{ m.plz }} {{ m.ort }}</div>
+  <div>Personalnummer {{ a.personalnr }}<br>Geburtsdatum {{ m.geburtsdatum|date_de or "–" }}<br>
+    Eintritt {{ m.eintritt|date_de }}{% if m.austritt %} · Austritt {{ m.austritt|date_de }}{% endif %}<br>
+    Steuer-ID {{ m.steuer_id or "–" }} · SV-Nummer {{ m.sv_nummer or "–" }}</div>
+</div>
+<div class="merk">
+  <div><span>Steuerklasse{% if k.faktor %} / Faktor{% endif %}</span>{{ "pauschal" if k.pauschsteuer else k.steuerklasse }}{% if k.faktor %} / {{ k.faktor }}{% endif %}</div>
+  <div><span>Kinderfreibeträge</span>{{ k.kinderfreibetraege }}</div>
+  <div><span>Konfession</span>{{ k.konfession or "–" }}{% if k.konfession_ehegatte %} / {{ k.konfession_ehegatte }}{% endif %}</div>
+  <div><span>Freibetrag / Hinzurechnung</span>{{ k.freibetrag|eur0 }} / {{ k.hinzurechnung|eur0 }}</div>
+  <div><span>Personengruppe</span>{{ k.personengruppe }}</div>
+  <div><span>Beitragsgruppe</span>{{ k.beitragsgruppe }}</div>
+  <div><span>Krankenkasse</span>{{ k.krankenkasse or "–" }}</div>
+  <div><span>Zusatzbeitrag KV</span>{{ k.kv_zusatz }} %</div>
+  <div><span>Übergangsbereich</span>{{ "ja" if sv.art == "midijob" else "nein" }}</div>
+  <div><span>SV-Tage</span>{{ s.sv_tage }}</div>
+  <div><span>Kinderlosenzuschlag PV</span>{{ "ja" if a.kinderlos and k.beitragsgruppe[3] != "0" else "nein" }}</div>
+  <div><span>Abrechnungszeitraum</span>{{ a.monat|monat_de }}</div>
+</div>
+
+<table><thead><tr><th>Bezüge und Abzüge</th><th>Kennzeichen</th><th class="num">Betrag</th></tr></thead><tbody>
+{% for p in a.positionen if p.lohnart != "abzug" %}<tr><td>{{ p.bezeichnung }}{% if p.satz %} ({{ p.satz }} % pauschal){% endif %}</td><td>{{ p.kennzeichen }}</td><td class="num">{{ p.betrag|eur }}</td></tr>{% endfor %}
+<tr class="summe"><td>Gesamtbrutto</td><td></td><td class="num">{{ s.brutto|eur }}</td></tr></tbody></table>
+
+<table><thead><tr><th>Steuern</th><th class="num">Steuerbrutto</th><th class="num">Lohnsteuer</th><th class="num">Kirchensteuer</th><th class="num">Solidaritätszuschlag</th></tr></thead><tbody>
+<tr><td>laufend und einmalig</td><td class="num">{{ (s.steuerbrutto + s.steuerbrutto_einmal)|eur }}</td><td class="num">{{ s.lst|eur }}</td><td class="num">{{ (s.kist + s.kist_ehegatte)|eur }}</td><td class="num">{{ s.soli|eur }}</td></tr>
+{% if s.pauschsteuer %}<tr><td colspan="4">Pauschsteuer 2 % (trägt der Arbeitgeber)</td><td class="num">{{ s.pauschsteuer|eur }}</td></tr>{% endif %}
+</tbody></table>
+
+<table><thead><tr><th>Sozialversicherung</th><th class="num">KV</th><th class="num">RV</th><th class="num">AV</th><th class="num">PV</th></tr></thead><tbody>
+<tr><td>beitragspflichtiges Entgelt</td><td class="num">{{ (sv.bemessung_an_kv if sv.art == "midijob" else sv.bemessung_kv)|eur }}</td><td class="num">{{ (sv.bemessung_an_rv if sv.art == "midijob" else sv.bemessung_rv)|eur }}</td><td class="num">{{ (sv.bemessung_an_rv if sv.art == "midijob" else sv.bemessung_rv)|eur }}</td><td class="num">{{ (sv.bemessung_an_kv if sv.art == "midijob" else sv.bemessung_kv)|eur }}</td></tr>
+<tr><td>Arbeitnehmeranteil</td><td class="num">{{ s.kv_an|eur }}</td><td class="num">{{ s.rv_an|eur }}</td><td class="num">{{ s.av_an|eur }}</td><td class="num">{{ s.pv_an|eur }}</td></tr>
+</tbody></table>
+
+<table><tbody>
+<tr><td>Gesamtbrutto</td><td class="num">{{ s.brutto|eur }}</td></tr>
+<tr><td>− Steuern</td><td class="num">{{ (s.lst + s.kist + s.kist_ehegatte + s.soli)|eur }}</td></tr>
+<tr><td>− Sozialversicherung (Arbeitnehmeranteil)</td><td class="num">{{ s.sv_an|eur }}</td></tr>
+<tr class="summe"><td>Nettobetrag</td><td class="num">{{ s.netto|eur }}</td></tr>
+{% if s.sachbezug %}<tr><td>− Sachbezüge</td><td class="num">{{ s.sachbezug|eur }}</td></tr>{% endif %}
+{% for p in a.positionen if p.lohnart == "abzug" %}<tr><td>− {{ p.bezeichnung }}</td><td class="num">{{ p.betrag|eur }}</td></tr>{% endfor %}
+{% if s.pkv_zuschuss or s.pv_zuschuss %}<tr><td>+ Zuschuss zur privaten Kranken- und Pflegeversicherung (steuerfrei)</td><td class="num">{{ (s.pkv_zuschuss + s.pv_zuschuss)|eur }}</td></tr>{% endif %}
+<tr class="summe"><td>Auszahlungsbetrag{% if m.iban %} an IBAN {{ m.iban }}{% endif %}</td><td class="num">{{ s.auszahlung|eur }}</td></tr>
+</tbody></table>
+
+{% set j = a.jahr_bis %}
+<h2>Jahreswerte {{ a.monat[:4] }} bis {{ a.monat|monat_de }}</h2>
+<table><thead><tr><th class="num">Steuerbrutto</th><th class="num">Lohnsteuer</th><th class="num">Kirchensteuer</th><th class="num">Soli</th><th class="num">SV-Brutto</th><th class="num">KV</th><th class="num">RV</th><th class="num">AV</th><th class="num">PV</th></tr></thead>
+<tbody><tr><td class="num">{{ (j.steuerbrutto + j.steuerbrutto_einmal)|eur }}</td><td class="num">{{ j.lst|eur }}</td><td class="num">{{ (j.kist + j.kist_ehegatte)|eur }}</td><td class="num">{{ j.soli|eur }}</td><td class="num">{{ (j.svbrutto + j.svbrutto_einmal)|eur }}</td><td class="num">{{ j.kv_an|eur }}</td><td class="num">{{ j.rv_an|eur }}</td><td class="num">{{ j.av_an|eur }}</td><td class="num">{{ j.pv_an|eur }}</td></tr></tbody></table>
+<p class="hinweis">Kennzeichen: L lohnsteuerpflichtig, S sozialversicherungspflichtig, E einmalig, P pauschal versteuert, F frei. Arbeitgeberanteile: KV {{ s.kv_ag|eur }}, RV {{ s.rv_ag|eur }}, AV {{ s.av_ag|eur }}, PV {{ s.pv_ag|eur }}.</p>
+</body></html>

@@ -12,8 +12,9 @@
 </div>
 {% if j.reverse_charge %}<p class="muted">Reverse Charge {{ j.reverse_charge|eur }}: schuldest du und ziehst sie gleich wieder ab, kostet also nichts.</p>{% endif %}
 <h2>Je Zeitraum</h2>
+<p class="muted">Ein Klick auf den Zeitraum öffnet den Monatsabschluss: was erledigt ist, was fehlt und woraus sich der Betrag ergibt.</p>
 <table class="list"><tr><th>Zeitraum</th><th class="num">Einbehalten</th><th class="num">Vorsteuer</th><th class="num">Zahllast</th><th>Frist</th><th>Abgeschlossen</th></tr>
-{% for r in j.zeitraeume %}<tr class="{{ 'muted' if not (r.einbehalten or r.vorsteuer) }}"><td><a href="{{ M }}/auswertungen?zeitraum={{ r.period }}&jahr={{ j.year }}">{{ r.period }}</a></td>
+{% for r in j.zeitraeume %}<tr class="{{ 'muted' if not (r.einbehalten or r.vorsteuer) }}"><td><a href="{{ M }}/abschluss?zeitraum={{ r.period }}">{{ r.period }}</a></td>
 <td class="num">{{ r.einbehalten|eur }}</td><td class="num">{{ r.vorsteuer|eur }}</td><td class="num">{{ r.zahllast|eur }}</td>
 <td>{{ r.deadline|date_de }}</td><td>{{ "ja" if r.gesperrt else "" }}</td></tr>{% endfor %}
 <tr><td><b>Summe</b></td><td class="num"><b>{{ j.einbehalten|eur }}</b></td><td class="num"><b>{{ j.vorsteuer|eur }}</b></td><td class="num"><b>{{ j.zahllast|eur }}</b></td><td></td><td></td></tr></table>

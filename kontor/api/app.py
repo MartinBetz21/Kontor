@@ -40,7 +40,9 @@ def _zip_catalog(titles, items):
                          "tax_rate": i["tax_rate"]} for i in items}
 
 
-templates.env.filters.update(zip_catalog=_zip_catalog, fromjson=json.loads)
+templates.env.filters.update(zip_catalog=_zip_catalog, fromjson=json.loads,
+                             sats=lambda n: "–" if n is None else f"{n:,}".replace(",", "."),
+                             btc=lambda n: "–" if n is None else f"{n / 100_000_000:.8f}".replace(".", ","))
 templates.env.globals.update(KIND_LABELS=KIND_LABELS, STATUS_LABELS=STATUS_LABELS, TAX_KINDS=TAX_KINDS,
                              TAX_TREATMENTS_OUT=TAX_TREATMENTS,
                              KZ_LABELS=KZ_LABELS)
@@ -62,7 +64,9 @@ def render(request: Request, name: str, context: dict | None = None, status_code
     ctx = request.state.ctx
     m = request.state.mandant
     inbox = ctx.conn.execute("SELECT COUNT(*) FROM receipts WHERE status = 'eingang'").fetchone()[0]
+    freigaben = ctx.conn.execute("SELECT COUNT(*) FROM auftraege WHERE status = 'offen'").fetchone()[0]
     base = {"request": request, "confirm": request.app.state.confirm[m.id], "inbox_count": inbox,
+            "freigaben_count": freigaben,
             "hinweis": request.query_params.get("hinweis", ""), "M": f"/m/{m.id}", "mandant": m,
             "mandanten": list(request.app.state.mandanten.values()), "profil": md.get_profile(ctx)}
     return templates.TemplateResponse(request, name, {**base, **(context or {})}, status_code=status_code)

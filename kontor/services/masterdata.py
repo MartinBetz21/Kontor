@@ -1,6 +1,8 @@
 """Einstellungen, Kunden, Standardpositionen, Textvorlagen, Kategorien."""
 from __future__ import annotations
 
+import re
+
 from .. import config
 from ..context import Ctx
 from ..core.errors import KontorError
@@ -27,6 +29,18 @@ SETTINGS_DEFAULTS = {
     # ELSTER über ERiC (Spec 18.9): Bundesfinanzamtsnummer, Hersteller-ID (jede Person, die sendet, braucht eine eigene),
     # Plattformordner von ERiC, ELSTER-Zertifikat (.pfx) des Mandanten. Die PIN wird nie gespeichert.
     "finanzamt_nr": "", "elster_hersteller_id": "", "eric_pfad": "", "elster_zertifikat": "",
+    # Bitcoin (Spec 18.14, Profilschalter bitcoin): Konten im SKR04; eine Instanz setzt ihre eigenen im Register.
+    "btc_konto_bestand": "1300", "btc_konto_verrechnung": "1370", "btc_konto_erloes": "4830",
+    "btc_konto_buchwert": "6969", "btc_konto_gebuehr": "6855", "btc_konto_abschreibung": "6910",
+    "btc_konto_zuschreibung": "4915", "btc_konto_verlust": "6969",
+    # Lohn (Profilschalter lohn): Konten im SKR04, Anmeldungszeitraum (§ 41a Abs. 2 EStG), Kirchensteuersatz des Landes
+    # der Betriebsstätte (8 oder 9), pauschale Kirchensteuer im vereinfachten Verfahren, Betriebsstätte (leer = Firma)
+    "lohn_konto_gehalt": "6020", "lohn_konto_sv_ag": "6110", "lohn_konto_pauschsteuer": "6040",
+    "lohn_konto_pauschal_lst": "6069", "lohn_konto_sachbezug": "4947", "lohn_konto_steuerfrei": "6130",
+    "lohn_konto_abzug": "1340", "lohn_konto_verb_lohn": "3720", "lohn_konto_verb_steuer": "3730",
+    "lohn_konto_verb_sv": "3740",
+    "lohn_anmeldezeitraum": "monat", "lohn_kist_satz": "9", "lohn_kist_pauschal": "",
+    "lohn_steuernummer": "", "lohn_finanzamt_nr": "", "lohn_finanzamt_name": "", "lohn_betriebsnummer": "",
 }
 CUSTOMER_FIELDS = ("company", "contact", "street", "postcode", "city", "country", "email",
                    "vat_id", "leitweg_id", "note", "folder")
@@ -64,9 +78,16 @@ def set_settings(ctx: Ctx, values: dict[str, str]) -> None:
     clean = {k: str(v).strip() for k, v in values.items()}
     if "ustva_period" in clean and clean["ustva_period"] not in ("monat", "quartal", "jahr"):
         raise KontorError("Voranmeldungszeitraum ist 'monat', 'quartal' oder 'jahr'.")
+    if "lohn_anmeldezeitraum" in clean and clean["lohn_anmeldezeitraum"] not in ("monat", "quartal", "jahr"):
+        raise KontorError("Anmeldungszeitraum der Lohnsteuer ist 'monat', 'quartal' oder 'jahr'.")
+    if "lohn_kist_satz" in clean and clean["lohn_kist_satz"] not in ("8", "9"):
+        raise KontorError("Kirchensteuersatz ist 8 oder 9 (Prozent der Lohnsteuer).")
     for key in ("payment_days", "offer_valid_days"):
         if key in clean and not clean[key].isdigit():
             raise KontorError(f"{key} muss eine Zahl von Tagen sein.")
+    for key, value in clean.items():
+        if key.startswith(("btc_konto_", "lohn_konto_")) and not re.fullmatch(r"\d{3,5}", value):
+            raise KontorError(f"{key}: Konto als Nummer, z. B. 1300.")
     with tx(ctx.conn):
         for k, v in clean.items():
             ctx.conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
@@ -87,6 +108,7 @@ PROFILE_SWITCHES: dict[str, tuple[str, tuple[str, ...] | None]] = {
     "bankimport": ("", ("", "datev")),             # Format des Kontoumsatz-Exports, siehe importers/datev.py
     "zahlungsdienste": ("", None),                 # Liste, z. B. "stripe,pretix"
     "bitcoin": ("nein", JA_NEIN),
+    "lohn": ("nein", JA_NEIN),
     "e_bilanz": ("nein", JA_NEIN),
     "ustva_eric": ("ja", JA_NEIN),
     "hinterlegung": ("nein", JA_NEIN),

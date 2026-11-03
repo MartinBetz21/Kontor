@@ -20,7 +20,7 @@
   <label>Registergericht<input name="register_court" value="{{ s.register_court }}" placeholder="Amtsgericht …"></label>
   <label>Handelsregisternummer<input name="register_number" value="{{ s.register_number }}" placeholder="HRB …"></label>
   <label>Geschäftsführer<input name="managing_directors" value="{{ s.managing_directors }}"></label>
-  {% if profil.e_bilanz == "ja" or profil.ustva_eric == "ja" %}<h2 class="wide">ELSTER</h2>
+  {% if profil.e_bilanz == "ja" or profil.ustva_eric == "ja" or profil.lohn == "ja" %}<h2 class="wide">ELSTER</h2>
   <label>Bundesfinanzamtsnummer<input name="finanzamt_nr" value="{{ s.finanzamt_nr }}" placeholder="4 Ziffern, z. B. 5214" inputmode="numeric"></label>
   <label>Hersteller-ID (eigene, von ELSTER)<input name="elster_hersteller_id" value="{{ s.elster_hersteller_id }}" placeholder="kommt vom Landesamt"></label>
   <label class="wide">ERiC-Ordner<input name="eric_pfad" value="{{ s.eric_pfad }}" placeholder="…/ERiC-43.5.4.0/Darwin-universal"></label>
@@ -29,6 +29,33 @@
   <label>Bank<input name="bank_name" value="{{ s.bank_name }}"></label>
   <label>IBAN<input name="iban" value="{{ s.iban }}"></label>
   <label>BIC<input name="bic" value="{{ s.bic }}"></label>
+  {% if profil.bitcoin == "ja" %}<h2 class="wide">Bitcoin-Konten</h2>
+  <label>Bestand<input name="btc_konto_bestand" value="{{ s.btc_konto_bestand }}" inputmode="numeric"></label>
+  <label>Verrechnung mit Börse/Käufer<input name="btc_konto_verrechnung" value="{{ s.btc_konto_verrechnung }}" inputmode="numeric"></label>
+  <label>Erlös aus Verkauf (brutto)<input name="btc_konto_erloes" value="{{ s.btc_konto_erloes }}" inputmode="numeric"></label>
+  <label>Buchwert der Abgänge<input name="btc_konto_buchwert" value="{{ s.btc_konto_buchwert }}" inputmode="numeric"></label>
+  <label>Gebühren<input name="btc_konto_gebuehr" value="{{ s.btc_konto_gebuehr }}" inputmode="numeric"></label>
+  <label>Abschreibung zum Stichtag<input name="btc_konto_abschreibung" value="{{ s.btc_konto_abschreibung }}" inputmode="numeric"></label>
+  <label>Zuschreibung<input name="btc_konto_zuschreibung" value="{{ s.btc_konto_zuschreibung }}" inputmode="numeric"></label>
+  <label>Verlust<input name="btc_konto_verlust" value="{{ s.btc_konto_verlust }}" inputmode="numeric"></label>{% endif %}
+  {% if profil.lohn == "ja" %}<h2 class="wide">Lohn</h2>
+  <label>Lohnsteuer-Anmeldung<select name="lohn_anmeldezeitraum">{% for v, t in (("monat", "monatlich"), ("quartal", "vierteljährlich"), ("jahr", "jährlich")) %}<option value="{{ v }}" {{ 'selected' if s.lohn_anmeldezeitraum == v }}>{{ t }}</option>{% endfor %}</select><small class="muted">§ 41a Abs. 2 EStG; was gilt, steht im Schreiben des Finanzamts.</small></label>
+  <label>Kirchensteuersatz (Land der Betriebsstätte)<select name="lohn_kist_satz">{% for v in ("9", "8") %}<option {{ 'selected' if s.lohn_kist_satz == v }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Pauschale Kirchensteuer in Prozent<input name="lohn_kist_pauschal" value="{{ s.lohn_kist_pauschal }}" placeholder="nur für pauschal versteuerte Bezüge"></label>
+  <label>Steuernummer der Betriebsstätte<input name="lohn_steuernummer" value="{{ s.lohn_steuernummer }}" placeholder="leer = Steuernummer oben"></label>
+  <label>Finanzamtsnummer der Betriebsstätte<input name="lohn_finanzamt_nr" value="{{ s.lohn_finanzamt_nr }}" placeholder="leer = Finanzamtsnummer oben" inputmode="numeric"></label>
+  <label>Name des Finanzamts der Betriebsstätte<input name="lohn_finanzamt_name" value="{{ s.lohn_finanzamt_name }}" placeholder="für die Lohnsteuerbescheinigung"></label>
+  <label>Betriebsnummer (Arbeitsagentur)<input name="lohn_betriebsnummer" value="{{ s.lohn_betriebsnummer }}" inputmode="numeric"></label>
+  <label>Gehälter<input name="lohn_konto_gehalt" value="{{ s.lohn_konto_gehalt }}" inputmode="numeric"></label>
+  <label>Arbeitgeberanteile und Umlagen<input name="lohn_konto_sv_ag" value="{{ s.lohn_konto_sv_ag }}" inputmode="numeric"></label>
+  <label>Pauschsteuer Minijob<input name="lohn_konto_pauschsteuer" value="{{ s.lohn_konto_pauschsteuer }}" inputmode="numeric"></label>
+  <label>Pauschale Lohnsteuer § 40<input name="lohn_konto_pauschal_lst" value="{{ s.lohn_konto_pauschal_lst }}" inputmode="numeric"></label>
+  <label>Verrechnete Sachbezüge<input name="lohn_konto_sachbezug" value="{{ s.lohn_konto_sachbezug }}" inputmode="numeric"></label>
+  <label>Steuerfreie Bezüge<input name="lohn_konto_steuerfrei" value="{{ s.lohn_konto_steuerfrei }}" inputmode="numeric"></label>
+  <label>Abzüge (z. B. Vorschuss)<input name="lohn_konto_abzug" value="{{ s.lohn_konto_abzug }}" inputmode="numeric"></label>
+  <label>Verbindlichkeiten Lohn<input name="lohn_konto_verb_lohn" value="{{ s.lohn_konto_verb_lohn }}" inputmode="numeric"></label>
+  <label>Verbindlichkeiten Lohn- und Kirchensteuer<input name="lohn_konto_verb_steuer" value="{{ s.lohn_konto_verb_steuer }}" inputmode="numeric"></label>
+  <label>Verbindlichkeiten soziale Sicherheit<input name="lohn_konto_verb_sv" value="{{ s.lohn_konto_verb_sv }}" inputmode="numeric"></label>{% endif %}
   <h2 class="wide">Dokumente</h2>
   <label>Zahlungsziel (Tage)<input name="payment_days" value="{{ s.payment_days }}" inputmode="numeric"></label>
   <label class="wide">Zahlungshinweis auf Rechnungen (Vorlage; Platzhalter {betrag}, {faellig_am}, {iban})<input name="payment_note_template" value="{{ s.payment_note_template }}"></label>
@@ -36,5 +63,13 @@
   <label>Logo (SVG/PNG){% if s.logo_path %} · aktuell: {{ s.logo_path }}{% endif %}<input type="file" name="logo" accept=".svg,.png,.jpg,.jpeg"></label>
   <div class="actions"><button>Speichern</button></div>
 </form>
+{% if profil.bitcoin == "ja" %}<h2>Wallets</h2>
+<p class="muted">Kontor kennt nur den Namen einer Wallet, keine Adressen und keinen xpub. Bewegungen kommen von Hand oder als CSV-Export.</p>
+<table class="list"><tr><th>Name</th><th>Art</th><th>Status</th></tr>
+{% for w in wallets %}<tr><td>{{ w.name }}</td><td>{{ "Börse" if w.art == "boerse" else "Wallet" }}</td><td>{{ "aktiv" if w.aktiv else "inaktiv" }}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">noch keine</td></tr>{% endfor %}</table>
+<form method="post" action="{{ M }}/bitcoin/wallet" class="inline"><input name="name" placeholder="Name, z. B. Hardware-Wallet" required>
+  <select name="art"><option value="wallet">Wallet</option><option value="boerse">Börse</option></select>
+  <select name="aktiv"><option value="1">aktiv</option><option value="0">inaktiv</option></select><button class="small">speichern</button></form>{% endif %}
 <p><a href="{{ M }}/protokoll">Protokoll</a> · <a href="{{ M }}/pruefen">Integrität prüfen</a></p>
 {% endblock %}

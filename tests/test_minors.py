@@ -35,6 +35,19 @@ def test_confirmed_receipt_moves_with_its_date(ctx, ui):
     assert r["file_path"].startswith("belege/2026/09/") and (ui.data / r["file_path"]).exists()
 
 
+def test_confirmed_receipt_gets_a_readable_name(ctx, ui):
+    rid = rc.add_file(ctx, b"\xff\xd8 name", "IMG_4711.JPG", "upload")["id"]
+    cat = md.list_categories(ctx)[0]["id"]
+    rc.update(ctx, rid, {"receipt_date": "2026-10-01", "supplier": "Muster Software Inc., USA",
+                         "receipt_number": "R-0815", "gross": "9,00", "tax_kind": "rc_drittland", "category_id": cat})
+    r = rc.confirm(ui, rid)
+    assert r["file_path"] == f"belege/2026/10/{r['sha256'][:12]}-2026-10-01-Muster_Software_Inc._USA-R-0815.jpg"
+    rc.update(ui, rid, {"receipt_date": "2026-09-30", "receipt_number": ""})
+    r = rc.get_receipt(ui, rid)
+    assert r["file_path"] == f"belege/2026/09/{r['sha256'][:12]}-2026-09-30-Muster_Software_Inc._USA.jpg"
+    assert (ui.data / r["file_path"]).exists()
+
+
 def test_second_schluss_for_same_offer_refused(ui, setup):
     _, s = _schluss_setup(ui, setup)
     offer_id = docs.get_document(ui, s["id"])["source_document_id"]

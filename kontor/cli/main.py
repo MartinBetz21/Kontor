@@ -114,6 +114,10 @@ def build_parser() -> argparse.ArgumentParser:
     with_json(z.add_parser("erfassen"))
     with_json(z.add_parser("ust"))
     z.add_parser("liste").add_argument("--jahr", type=int)
+    with_json(z.add_parser("ohne-rechnung", help="Zahlungseingang, zu dem die Rechnung noch fehlt (zählt sofort)"))
+    x = z.add_parser("verknuepfen", help="abgeschlossene Rechnung übernimmt eine Zahlung ohne Rechnung")
+    x.add_argument("id", type=int)
+    x.add_argument("--dokument", required=True, type=int)
 
     b = area("beleg", "Belege")
     b.add_parser("erfassen").add_argument("datei")
@@ -173,6 +177,137 @@ def build_parser() -> argparse.ArgumentParser:
     x.add_argument("--datum", required=True)
     x.add_argument("--saldo", required=True)
     x.add_argument("--notiz", default="")
+
+    lo = area("lohn", "Lohn (nur mit Profilschalter lohn); Senden nur über Aufträge zur Freigabe")
+    x = lo.add_parser("mitarbeiter", help="ohne --json die Liste; mit --json anlegen bzw. mit --id ändern")
+    x.add_argument("--id", type=int)
+    with_json(x, required=False)
+    lo.add_parser("zeigen", help="Mitarbeiter mit Merkmalen, Bezügen, Vortrag").add_argument("id", type=int)
+    x = with_json(lo.add_parser("merkmale", help="neue Fassung der Merkmale ab Monat (steuerklasse, beitragsgruppe, …)"))
+    x.add_argument("id", type=int)
+    x.add_argument("--ab", required=True, help="JJJJ-MM")
+    x = with_json(lo.add_parser("bezug", help="Bezug oder Abzug (lohnart, betrag, ab/bis oder monat, bezeichnung)"))
+    x.add_argument("id", type=int)
+    x = lo.add_parser("bezug-beenden")
+    x.add_argument("bezug", type=int)
+    x.add_argument("--bis", required=True, help="letzter Monat JJJJ-MM")
+    x = with_json(lo.add_parser("vortrag", help="Jahreswerte aus einem anderen Programm bis einschließlich --bis"))
+    x.add_argument("id", type=int)
+    x.add_argument("--jahr", required=True, type=int)
+    x.add_argument("--bis", required=True)
+    x.add_argument("--notiz", default="")
+    x = lo.add_parser("abrechnen", help="Abrechnung als Entwurf rechnen (speichert nichts); ohne --id alle des Monats")
+    x.add_argument("--monat", required=True)
+    x.add_argument("--id", type=int)
+    x = lo.add_parser("journal", help="Lohnjournal")
+    x.add_argument("--jahr", required=True, type=int)
+    x.add_argument("--monat")
+    x = lo.add_parser("lohnkonto")
+    x.add_argument("id", type=int)
+    x.add_argument("--jahr", required=True, type=int)
+    lo.add_parser("kosten", help="Lohnkosten des Arbeitgebers").add_argument("--jahr", required=True, type=int)
+    lo.add_parser("kassen", help="Beiträge je Kasse (Beitragsnachweis)").add_argument("--monat", required=True)
+    x = lo.add_parser("lsta", help="Lohnsteuer-Anmeldung: Werte, mit --pruefen lokal durch ERiC")
+    x.add_argument("--jahr", required=True, type=int)
+    x.add_argument("--zeitraum", help="01–12, 41–44 oder 19; ohne alle Zeiträume des Jahres")
+    x.add_argument("--pruefen", action="store_true")
+    x = lo.add_parser("lstb", help="Lohnsteuerbescheinigung: Werte, mit --pruefen durch ERiC")
+    x.add_argument("id", type=int)
+    x.add_argument("--jahr", required=True, type=int)
+    x.add_argument("--pruefen", action="store_true")
+    lo.add_parser("auffaelligkeiten").add_argument("--jahr", required=True, type=int)
+    x = lo.add_parser("festschreiben", help="Abrechnung festschreiben; mit --bis alle offenen Monate bis --monat")
+    x.add_argument("id", type=int)
+    x.add_argument("--monat", required=True)
+    x.add_argument("--bis", action="store_true")
+    x = lo.add_parser("stornieren", help="festgeschriebene Abrechnung stornieren (nur die jüngste)")
+    x.add_argument("abrechnung", type=int)
+    x.add_argument("--grund", required=True)
+    x = lo.add_parser("lsta-extern", help="vermerken, dass ein anderes Programm die Anmeldung schon gesendet hat")
+    x.add_argument("--jahr", required=True, type=int)
+    x.add_argument("--zeitraum", required=True)
+    x.add_argument("--notiz", required=True)
+    x = lo.add_parser("elstam", help="empfangene ELStAM; mit --uebernehmen ID in die Merkmale, mit --pruefen eine Anfrage")
+    x.add_argument("--offen", action="store_true")
+    x.add_argument("--uebernehmen", type=int)
+    x.add_argument("--pruefen", choices=["anmelden", "wechsel", "abmelden"])
+    x.add_argument("--id", type=int, help="Mitarbeiter (mit --pruefen)")
+    x.add_argument("--referenzdatum")
+
+    au = area("auftrag", "Aufträge zur Freigabe: vorbereiten hier, senden nur der Mensch unter „Freigaben“")
+    x = au.add_parser("liste")
+    x.add_argument("--status", choices=["offen", "gesendet", "abgelehnt", "veraltet", "verworfen"])
+    for name, hilfe in (("lsta", "Lohnsteuer-Anmeldung"), ("lstb", "Lohnsteuerbescheinigung"), ("elstam", "ELStAM-Anfrage"),
+                        ("abholen", "ELStAM aus dem Postfach abholen"), ("ebilanz", "E-Bilanz"),
+                        ("ustva", "Umsatzsteuer-Voranmeldung (Zeitraum JJJJ-MM oder JJJJ-Qn)")):
+        x = au.add_parser(name, help=hilfe)
+        x.add_argument("--test", action="store_true", help="Testversand")
+        x.add_argument("--notiz", default="")
+        if name in ("lsta", "lstb", "ebilanz"):
+            x.add_argument("--jahr", required=True, type=int)
+        if name in ("lsta", "ustva"):
+            x.add_argument("--zeitraum", required=True)
+        if name in ("lstb", "elstam"):
+            x.add_argument("--mitarbeiter", required=True, type=int)
+        if name == "elstam":
+            x.add_argument("--vorgang", required=True, choices=["anmelden", "wechsel", "abmelden"])
+            x.add_argument("--referenzdatum")
+    x = au.add_parser("verwerfen")
+    x.add_argument("id", type=int)
+    x.add_argument("--grund", required=True)
+
+    bt = area("btc", "Bitcoin-Nebenbuch (Spec 18.14, nur mit Profilschalter bitcoin)")
+    x = bt.add_parser("wallet", help="Wallet anlegen oder ändern; ohne --name die Liste")
+    x.add_argument("--name")
+    x.add_argument("--art", default="wallet", choices=["wallet", "boerse"])
+    x.add_argument("--inaktiv", action="store_true")
+    x = bt.add_parser("import", help="Export als Entwürfe übernehmen (Adressen und Transaktions-IDs werden verworfen)")
+    x.add_argument("--format", required=True, choices=["kontor", "bitbox", "coinfinity"])
+    x.add_argument("--datei", required=True)
+    x.add_argument("--wallet", help="Pflicht für bitbox und coinfinity")
+    with_json(bt.add_parser("erfassen", help="Bewegung von Hand (wallet, art, datum, sats, eur, …)"))
+    x = bt.add_parser("liste", help="Bewegungen, Entwürfe mit Vorschlag")
+    x.add_argument("--jahr", type=int)
+    x.add_argument("--status", choices=["entwurf", "bestaetigt", "verworfen"])
+    x = bt.add_parser("bestaetigen", help="Entwurf bestätigen (erst dann wird gebucht); --zurueck setzt zurück")
+    x.add_argument("id", type=int)
+    x.add_argument("--zurueck", action="store_true")
+    x.add_argument("--grund", default="")
+    x = bt.add_parser("zuordnen", help="Entwurf klassifizieren, Vorschlag übernehmen, Bankumsatz zuordnen oder verwerfen")
+    x.add_argument("id", type=int)
+    x.add_argument("--art", choices=["kauf", "verkauf", "kundenzahlung", "zahlung", "umbuchung", "verlust"])
+    x.add_argument("--rechnung", help="Rechnungsnummer (Kundenzahlung)")
+    x.add_argument("--beleg", type=int, help="Eingangsbeleg (Zahlung)")
+    x.add_argument("--konto", help="Aufwandskonto (Zahlung einer Eingangsrechnung)")
+    x.add_argument("--steuer", choices=["19", "7", "0", "rc_eu", "rc_drittland"], help="Steuerschlüssel (Zahlung)")
+    x.add_argument("--ziel", help="Ziel-Wallet (Umbuchung)")
+    x.add_argument("--eur", help="Kaufbetrag, Vertragsbetrag brutto oder Nennwert")
+    x.add_argument("--gebuehr-eur")
+    x.add_argument("--gebuehr-sats", type=int)
+    x.add_argument("--vertragsdatum")
+    x.add_argument("--ak", help="Anschaffungskosten einer Kundenzahlung (Marktwert statt Nennwert)")
+    x.add_argument("--notiz")
+    x.add_argument("--vorschlag", action="store_true", help="Vorschlag (offene Rechnung) übernehmen")
+    x.add_argument("--bank", action="store_true", help="passenden Bankumsatz auf das Verrechnungskonto zuordnen")
+    x.add_argument("--verwerfen", action="store_true", help="Entwurf verwerfen (mit --grund)")
+    x.add_argument("--grund", default="")
+    x = bt.add_parser("saldo", help="Saldo laut Wallet eintragen; ohne --wallet die Liste mit Differenzen")
+    x.add_argument("--wallet")
+    x.add_argument("--datum")
+    x.add_argument("--sats", type=int)
+    x.add_argument("--notiz", default="")
+    x = bt.add_parser("kurse", help="Tageskurse: --abrufen (Kraken, Lücken aus Bitstamp) oder --datum/--eur von Hand; "
+                                    "ohne Schalter der Stand")
+    x.add_argument("--abrufen", action="store_true")
+    x.add_argument("--ab", help="Bitstamp-Historie ab diesem Tag (JJJJ-MM-TT), z. B. vor dem Kraken-Fenster")
+    x.add_argument("--datum")
+    x.add_argument("--eur", help="EUR je BTC")
+    x = bt.add_parser("bewertung", help="Bewertung des Jahres; mit --vortrag der Anfangsbestand einer Wallet")
+    x.add_argument("--jahr", type=int, required=True)
+    x.add_argument("--vortrag", metavar="WALLET")
+    x.add_argument("--sats", type=int)
+    x.add_argument("--ak")
+    x.add_argument("--buchwert")
 
     jn = area("journal", "Journal der Bilanz-Mandanten (Spec 18.8a)")
     x = jn.add_parser("eroeffnung", help="Vortrag zum 01.01. aus der Saldenliste des Vorjahres")
@@ -301,6 +436,12 @@ def run(a: argparse.Namespace, ctx) -> object:
         return {"id": pay.record_tax_payment(ctx, data["pay_date"], data["amount"], data.get("note", ""))}
     if key == ("zahlung", "liste"):
         return pay.list_payments(ctx, year=a.jahr)
+    if key == ("zahlung", "ohne-rechnung"):
+        return {"id": pay.record_unbilled(ctx, data["pay_date"], data["amount"], str(data["tax_rate"]),
+                                          data.get("note", ""))}
+    if key == ("zahlung", "verknuepfen"):
+        pay.link_unbilled(ctx, a.id, a.dokument)
+        return _doc(ctx, a.dokument)
     if key == ("beleg", "erfassen"):
         path = Path(a.datei)
         return rc.add_file(ctx, path.read_bytes(), path.name, "cli")
@@ -400,6 +541,12 @@ def run(a: argparse.Namespace, ctx) -> object:
         if a.action == "anker":
             bank.set_anchor(ctx, a.iban, a.datum, a.saldo, a.notiz)
             return bank.anchors(ctx)
+    if a.area == "btc":
+        return _btc(a, ctx, data)
+    if a.area == "lohn":
+        return _lohn(a, ctx, data)
+    if a.area == "auftrag":
+        return _auftrag(a, ctx)
     if a.area == "journal":
         from ..services import journal as jr
         if a.action == "eroeffnung":
@@ -449,6 +596,160 @@ def run(a: argparse.Namespace, ctx) -> object:
         dst.close()
         return {"backup": str(Path(a.out).resolve())}
     raise KontorError(f"Unbekannter Befehl: {' '.join(filter(None, key))}")
+
+
+def _auftrag(a: argparse.Namespace, ctx) -> object:
+    from ..services import auftraege
+    if a.action == "liste":
+        return auftraege.liste(ctx, a.status)
+    if a.action == "verwerfen":
+        auftraege.verwerfen(ctx, a.id, a.grund)
+        return auftraege.get(ctx, a.id)
+    art = {"abholen": "elstam_abholen"}.get(a.action, a.action)
+    p = {k: getattr(a, k) for k in ("jahr", "zeitraum", "mitarbeiter", "vorgang", "referenzdatum") if hasattr(a, k)}
+    return auftraege.anlegen(ctx, art, p, a.test, a.notiz)
+
+
+def _lohn(a: argparse.Namespace, ctx, data: dict) -> object:
+    from ..services import lohn
+    if a.action == "mitarbeiter":
+        if data:
+            return lohn.get(ctx, lohn.mitarbeiter_speichern(ctx, data, a.id))
+        return lohn.mitarbeiter(ctx)
+    if a.action == "zeigen":
+        return lohn.get(ctx, a.id)
+    if a.action == "merkmale":
+        return lohn.merkmale_setzen(ctx, a.id, a.ab, data)
+    if a.action == "bezug":
+        return {"bezug": lohn.bezug(ctx, a.id, data)}
+    if a.action == "bezug-beenden":
+        lohn.bezug_beenden(ctx, a.bezug, a.bis)
+        return {"bezug": a.bezug, "bis": a.bis}
+    if a.action == "vortrag":
+        lohn.vortrag_setzen(ctx, a.id, a.jahr, a.bis, data, a.notiz)
+        return lohn.get(ctx, a.id)["vortrag"]
+    if a.action == "abrechnen":
+        return lohn.berechnen(ctx, a.id, a.monat) if a.id else lohn.abrechnungen(ctx, a.monat)
+    if a.action == "journal":
+        return lohn.lohnjournal(ctx, a.jahr, a.monat)
+    if a.action == "lohnkonto":
+        return lohn.lohnkonto(ctx, a.id, a.jahr)
+    if a.action == "kosten":
+        return lohn.lohnkosten(ctx, a.jahr)
+    if a.action == "kassen":
+        return lohn.beitraege_kassen(ctx, a.monat)
+    if a.action == "lsta":
+        if a.pruefen:
+            return lohn.lsta_pruefen(ctx, a.jahr, a.zeitraum or "")
+        return lohn.lsta_werte(ctx, a.jahr, a.zeitraum) if a.zeitraum else lohn.zeitraeume(ctx, a.jahr)
+    if a.action == "lstb":
+        return lohn.lstb_pruefen(ctx, a.id, a.jahr) if a.pruefen else lohn.lstb_werte(ctx, a.id, a.jahr)
+    if a.action == "auffaelligkeiten":
+        return lohn.auffaelligkeiten(ctx, a.jahr)
+    if a.action == "festschreiben":
+        ids = lohn.festschreiben_bis(ctx, a.id, a.monat) if a.bis else [lohn.festschreiben(ctx, a.id, a.monat)]
+        return [{k: x[k] for k in ("id", "monat", "name", "summen", "pdf")} for x in map(lambda i: lohn.abrechnung(ctx, i), ids)]
+    if a.action == "stornieren":
+        lohn.stornieren(ctx, a.abrechnung, a.grund)
+        return lohn.abrechnung(ctx, a.abrechnung)
+    if a.action == "lsta-extern":
+        return lohn.lsta_extern(ctx, a.jahr, a.zeitraum, a.notiz)
+    if a.action == "elstam":
+        if a.uebernehmen:
+            return lohn.elstam_uebernehmen(ctx, a.uebernehmen)
+        if a.pruefen:
+            return lohn.elstam_pruefen(ctx, a.pruefen, [a.id], a.referenzdatum)
+        return lohn.elstam(ctx, a.offen)
+    raise KontorError(f"Unbekannter Befehl: lohn {a.action}")
+
+
+def _btc(a: argparse.Namespace, ctx, data: dict) -> object:
+    from ..services import bitcoin as btc
+    if not md.has(ctx, "bitcoin"):
+        raise KontorError("Bitcoin ist für diesen Mandanten aus (Profilschalter bitcoin, `kontor profil setzen`).")
+    if a.action == "wallet":
+        if a.name:
+            btc.wallet(ctx, a.name, a.art, not a.inaktiv)
+        return btc.wallets(ctx)
+    if a.action == "import":
+        return btc.importieren(ctx, a.format, Path(a.datei).read_text(encoding="utf-8-sig"), a.wallet)
+    if a.action == "erfassen":
+        return btc.get(ctx, btc.erfassen(ctx, data))
+    if a.action == "liste":
+        out = btc.bewegungen(ctx, a.jahr, a.status)
+        for m in out:
+            m["vorschlag"] = btc.vorschlag(ctx, m)
+            m["bank_vorschlag"] = btc.bank_vorschlag(ctx, m) if m["art"] in ("kauf", "verkauf") else None
+        return out
+    if a.action == "bestaetigen":
+        if a.zurueck:
+            btc.entbestaetigen(ctx, a.id, a.grund)
+        else:
+            btc.bestaetigen(ctx, a.id)
+        return btc.get(ctx, a.id)
+    if a.action == "zuordnen":
+        if a.verwerfen:
+            btc.verwerfen(ctx, a.id, a.grund)
+        elif a.bank:
+            return {"bewegung": a.id, "bankumsatz": btc.bank_zuordnen(ctx, a.id)}
+        elif a.vorschlag:
+            s = btc.vorschlag(ctx, btc.get(ctx, a.id))
+            if not s:
+                raise KontorError(f"Für Bewegung {a.id} gibt es keinen Vorschlag.")
+            btc.zuordnen(ctx, a.id, art=s["art"], rechnung=s["nummer"], eur=s["eur"])
+        else:
+            btc.zuordnen(ctx, a.id, art=a.art, rechnung=a.rechnung, beleg=a.beleg, konto=a.konto, steuer=a.steuer,
+                         ziel=a.ziel, eur=a.eur,
+                         gebuehr_eur=a.gebuehr_eur, gebuehr_sats=a.gebuehr_sats, vertragsdatum=a.vertragsdatum,
+                         ak=a.ak, notiz=a.notiz)
+        return btc.get(ctx, a.id)
+    if a.action == "saldo":
+        if a.wallet:
+            if not a.datum or a.sats is None:
+                raise KontorError("--datum und --sats angeben (Saldo, den die Wallet zeigt).")
+            btc.saldo_eintragen(ctx, a.wallet, a.datum, a.sats, a.notiz)
+        return btc.salden(ctx)
+    if a.action == "kurse":
+        if a.abrufen:
+            import urllib.request
+
+            from datetime import datetime, timezone
+
+            from ..importers.bitcoin import BITSTAMP_URL, KRAKEN_URL
+            # Die Abfragen nennen nur das Handelspaar, nichts über den Bestand. Kraken zuerst (maßgeblich), dann
+            # Bitstamp für die Historie davor und für Tage, die Kraken nicht liefert; fällt eine Quelle aus, läuft
+            # die andere trotzdem.
+            def holen(url: str) -> str:
+                req = urllib.request.Request(url, headers={"User-Agent": "kontor"})
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return resp.read().decode("utf-8")
+            neu, fehler = {"kraken": 0, "bitstamp": 0}, []
+            try:
+                neu["kraken"] = btc.abruf_speichern(ctx, "kraken", holen(KRAKEN_URL + str(btc.kraken_seit(ctx))))
+            except (OSError, KontorError) as exc:
+                fehler.append(f"Kraken: {exc}")
+            start, jetzt = btc.bitstamp_ab(ctx, a.ab), int(datetime.now(timezone.utc).timestamp())
+            try:
+                while start < jetzt - 86400:              # höchstens 1000 Tage je Abfrage
+                    neu["bitstamp"] += btc.abruf_speichern(ctx, "bitstamp", holen(BITSTAMP_URL + str(start)))
+                    start += 1000 * 86400
+            except (OSError, KontorError) as exc:
+                fehler.append(f"Bitstamp: {exc}")
+            if fehler and not any(neu.values()):
+                raise KontorError("Keine Kurse abgerufen: " + "; ".join(fehler))
+            return {"neu": neu, "fehler": fehler, **btc.kurse_stand(ctx)}
+        if a.datum or a.eur:
+            if not (a.datum and a.eur):
+                raise KontorError("--datum und --eur zusammen angeben.")
+            btc.kurs_speichern(ctx, a.datum, a.eur)
+        return btc.kurse_stand(ctx)
+    if a.action == "bewertung":
+        if a.vortrag:
+            if a.sats is None or a.ak is None or a.buchwert is None:
+                raise KontorError("Vortrag: --sats, --ak und --buchwert angeben.")
+            btc.vortrag_setzen(ctx, a.jahr, a.vortrag, a.sats, a.ak, a.buchwert)
+        return btc.bewertung(ctx, a.jahr)
+    raise KontorError(f"Unbekannter Befehl: btc {a.action}")
 
 
 def init(a: argparse.Namespace) -> dict:

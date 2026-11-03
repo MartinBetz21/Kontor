@@ -1,0 +1,87 @@
+{% extends "base.html" %}{% block title %}Bitcoin {{ year }}{% endblock %}
+{% block main %}
+<h1>Bitcoin {{ year }}</h1>
+<form method="get" class="filters"><label>Jahr<input name="jahr" value="{{ year }}" inputmode="numeric" style="width:6em" onchange="this.form.submit()"></label></form>
+{% if b.fehler %}<div class="error">{{ b.fehler }}</div>{% endif %}
+<div class="cards">
+  <div class="card"><span>Bestand</span><b>{{ stand.sats|btc }} BTC</b><small>{{ stand.sats|sats }} sats</small></div>
+  <div class="card"><span>Anschaffungskosten</span><b>{{ stand.ak|eur }}</b></div>
+  <div class="card"><span>Buchwert</span><b>{{ stand.buchwert|eur }}</b>{% if b.kurs_stichtag %}<small>nach Bewertung zum 31.12.</small>{% endif %}</div>
+  <div class="card"><span>Marktwert{% if stand.kurs %} ({{ stand.kurs.datum|date_de }}){% endif %}</span><b>{{ stand.marktwert|eur if stand.marktwert is not none else "–" }}</b>
+    {% if stand.reserve is not none %}<small>{{ "stille Reserve" if stand.reserve >= 0 else "stille Last" }} {{ stand.reserve|eur }}</small>{% endif %}</div>
+</div>
+<table class="list"><tr><th>Wallet</th><th>Art</th><th class="num">sats</th><th class="num">BTC</th></tr>
+{% for w in stand.wallets %}<tr class="{{ 'muted' if not w.aktiv }}"><td>{{ w.name }}</td><td>{{ "Börse" if w.art == "boerse" else "Wallet" }}</td><td class="num">{{ w.sats|sats }}</td><td class="num">{{ w.sats|btc }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Noch keine Wallet (Einstellungen).</td></tr>{% endfor %}</table>
+
+<h2>Entwürfe <span class="muted">· {{ drafts|length }}</span></h2>
+<p class="muted">Importierte und erfasste Bewegungen sind Entwürfe. Erst bestätigte Bewegungen buchen. Ein Vorschlag ist kein Buchen.</p>
+<table class="list"><tr><th>Datum</th><th>Wallet</th><th>Art</th><th class="num">sats</th><th class="num">Gebühr sats</th><th>Notiz</th><th>Zuordnung</th></tr>
+{% for m in drafts %}<tr><td>{{ m.datum|date_de }}</td><td>{{ m.wallet }}</td><td>{{ arten[m.art] }}</td><td class="num">{{ m.sats|sats }}</td><td class="num">{{ m.gebuehr_sats|sats }}</td><td>{{ m.notiz }}</td>
+  <td><form method="post" action="{{ M }}/bitcoin/{{ m.id }}/zuordnen" class="inline"><input type="hidden" name="jahr" value="{{ year }}">
+    {% set v = m.vorschlag %}<select name="art"><option value="">– Art –</option>{% for k, label in arten.items() if k not in ("eingang", "ausgang") %}<option value="{{ k }}" {{ 'selected' if (v and v.art == k) or (not v and m.art == k) }}>{{ label }}</option>{% endfor %}</select>
+    <select name="rechnung"><option value="">– Rechnung –</option>{% for i in invoices %}<option value="{{ i.number }}" {{ 'selected' if (v and v.document_id == i.id) or m.document_id == i.id }}>{{ i.number }} · {{ i.gross|eur }}</option>{% endfor %}</select>
+    <input name="eur" placeholder="EUR" size="8" value="{{ (v.eur if v else m.eur)|money_input }}">
+    <input name="gebuehr_eur" placeholder="Gebühr EUR" size="7" value="{{ m.gebuehr_eur|money_input if m.gebuehr_eur else '' }}">
+    <input name="vertragsdatum" placeholder="Vertragsdatum" size="10" value="{{ m.vertragsdatum or '' }}">
+    <input name="konto" placeholder="Konto (Zahlung)" size="6" value="{{ m.konto }}">
+    <select name="steuer"><option value="">– Steuer –</option>{% for s in ("19", "7", "0", "rc_eu", "rc_drittland") %}<option {{ 'selected' if m.steuer == s }}>{{ s }}</option>{% endfor %}</select>
+    <select name="ziel"><option value="">– Ziel-Wallet –</option>{% for w in wallets %}<option {{ 'selected' if m.ziel == w.name }}>{{ w.name }}</option>{% endfor %}</select>
+    <input name="notiz" placeholder="Notiz / Begründung" size="12" value="{{ m.notiz }}">
+    <button class="small secondary">speichern</button><button class="small" name="bestaetigen" value="1">bestätigen</button>
+    {% if v %}<small class="muted">Vorschlag: {{ v.nummer or arten[v.art] }} ({{ v.regel }})</small>{% endif %}</form>
+    <form method="post" action="{{ M }}/bitcoin/{{ m.id }}/verwerfen" class="inline"><input type="hidden" name="jahr" value="{{ year }}"><input name="grund" placeholder="Grund" size="10"><button class="small secondary">verwerfen</button></form>
+    {% if m.art not in ("eingang", "ausgang") %}<form method="post" action="{{ M }}/bitcoin/{{ m.id }}/bestaetigen" class="inline"><input type="hidden" name="jahr" value="{{ year }}"><button class="small">so bestätigen</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Keine Entwürfe.</td></tr>{% endfor %}</table>
+<details><summary>Bewegung von Hand erfassen</summary>
+<form method="post" action="{{ M }}/bitcoin/erfassen" class="grid"><input type="hidden" name="jahr" value="{{ year }}">
+  <label>Wallet<select name="wallet">{% for w in wallets if w.aktiv %}<option>{{ w.name }}</option>{% endfor %}</select></label>
+  <label>Art<select name="art">{% for k, label in arten.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+  <label>Datum (Übergang)<input name="datum" placeholder="JJJJ-MM-TT" required></label>
+  <label>sats<input name="sats" inputmode="numeric" required></label>
+  <label>Netzwerkgebühr sats<input name="gebuehr_sats" inputmode="numeric"></label>
+  <label>EUR (Kaufbetrag, Vertragsbetrag, Nennwert)<input name="eur"></label>
+  <label>Gebühr EUR<input name="gebuehr_eur"></label>
+  <label>Vertragsdatum (Verkauf)<input name="vertragsdatum" placeholder="JJJJ-MM-TT"></label>
+  <label>Rechnung (Kundenzahlung)<input name="rechnung"></label>
+  <label>Ziel-Wallet (Umbuchung)<input name="ziel"></label>
+  <label>Konto (Zahlung)<input name="konto"></label>
+  <label>Steuerschlüssel (Zahlung)<select name="steuer"><option value="">–</option>{% for s in ("19", "7", "0", "rc_eu", "rc_drittland") %}<option>{{ s }}</option>{% endfor %}</select></label>
+  <label class="wide">Notiz<input name="notiz"></label>
+  <div class="actions"><button>Als Entwurf erfassen</button></div></form></details>
+
+<h2>Bewegungen {{ year }}</h2>
+<table class="list"><tr><th>Datum</th><th>Wallet</th><th>Art</th><th class="num">sats</th><th class="num">Gebühr sats</th><th class="num">EUR</th><th>Notiz</th><th></th></tr>
+{% for m in moves %}<tr><td>{{ m.datum|date_de }}</td><td>{{ m.wallet }}{% if m.ziel and m.art == "umbuchung" %} → {{ m.ziel }}{% endif %}</td><td>{{ arten[m.art] }}{% if m.nummer %} {{ m.nummer }}{% endif %}</td>
+  <td class="num">{{ m.sats|sats }}</td><td class="num">{{ m.gebuehr_sats|sats }}</td><td class="num">{{ m.eur|eur if m.eur else "" }}</td><td>{{ m.notiz }}</td>
+  <td>{% if m.bank_vorschlag %}<form method="post" action="{{ M }}/bitcoin/{{ m.id }}/bank" class="inline"><input type="hidden" name="jahr" value="{{ year }}"><button class="small">Bankumsatz {{ m.bank_vorschlag.datum|date_de }} {{ m.bank_vorschlag.betrag|eur }} auf {{ m.bank_vorschlag.account }}</button></form>{% endif %}
+    <form method="post" action="{{ M }}/bitcoin/{{ m.id }}/zurueck" class="inline"><input type="hidden" name="jahr" value="{{ year }}"><input name="grund" placeholder="Grund" size="10"><button class="small secondary">zurück zum Entwurf</button></form></td></tr>
+{% else %}<tr><td colspan="8" class="muted">Keine bestätigten Bewegungen.</td></tr>{% endfor %}</table>
+
+<h2>Bewertung {{ year }}</h2>
+<table class="list">
+  <tr><td>Anfangsbestand</td><td class="num">{{ b.anfang.sats|sats }} sats</td><td class="num">AK {{ b.anfang.ak|eur }}</td><td class="num">Buchwert {{ b.anfang.buchwert|eur }}</td></tr>
+  <tr><td>Anfangsbestand und Zugänge (Durchschnitt)</td><td class="num">{{ b.pool.sats|sats }} sats</td><td class="num">AK {{ b.pool.ak|eur }}</td><td class="num">Buchwert {{ b.pool.buchwert|eur }}</td></tr>
+  {% for a in b.abgaenge %}<tr class="muted"><td>Abgang {{ a.datum|date_de }} {{ arten[a.art] }}{% if a.teil == "gebuehr" %} (Netzwerkgebühr){% endif %}</td><td class="num">{{ a.sats|sats }} sats</td><td class="num">AK {{ a.ak|eur }}</td><td class="num">Buchwert {{ a.buchwert|eur }}</td></tr>{% endfor %}
+  <tr><td>Bestand 31.12. vor Bewertung</td><td class="num">{{ b.bestand_sats|sats }} sats</td><td class="num">AK {{ b.ak|eur }}</td><td class="num">Buchwert {{ b.buchwert_vor_stichtag|eur }}</td></tr>
+  {% if b.kurs_stichtag %}<tr><td>Kurs 31.12. {{ b.kurs_stichtag }} € ({{ b.kurs_quelle }}) · Marktwert {{ b.marktwert|eur }} · Wertansatz {{ b.wertansatz|eur }}</td><td></td><td class="num">{% if b.abschreibung %}Abschreibung {{ b.abschreibung|eur }}{% elif b.zuschreibung %}Zuschreibung {{ b.zuschreibung|eur }}{% endif %}</td><td class="num"><b>Buchwert {{ b.buchwert|eur }}</b></td></tr>
+  {% for s in b.schwebend %}<tr class="muted"><td>Schwebender Verkauf (Vertrag vor, Übergang nach dem Stichtag): {{ s.sats|sats }} sats zu {{ s.eur|eur }}</td><td></td><td class="num">{% if s.abschreibung %}auf den Vertragspreis {{ s.abschreibung|eur }}{% endif %}</td><td></td></tr>{% endfor %}
+  {% else %}<tr><td colspan="4" class="muted">Kein Kurs zum 31.12.{{ year }}: keine Bewertung zum Stichtag gebucht.</td></tr>{% endif %}
+</table>
+
+<h2>Saldo laut Wallet</h2>
+<table class="list"><tr><th>Wallet</th><th>Datum</th><th class="num">laut Wallet</th><th class="num">laut Kontor</th><th class="num">Differenz</th><th>Notiz</th></tr>
+{% for s in salden %}<tr class="{{ 'late' if s.differenz }}"><td>{{ s.wallet }}</td><td>{{ s.datum|date_de }}</td><td class="num">{{ s.sats|sats }}</td><td class="num">{{ s.kontor|sats }}</td><td class="num">{{ s.differenz|sats }}</td><td>{{ s.notiz }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Noch kein Saldo eingetragen.</td></tr>{% endfor %}</table>
+<form method="post" action="{{ M }}/bitcoin/saldo" class="inline"><input type="hidden" name="jahr" value="{{ year }}">
+  <select name="wallet">{% for w in wallets %}<option>{{ w.name }}</option>{% endfor %}</select>
+  <input name="datum" placeholder="JJJJ-MM-TT" size="10" required><input name="sats" placeholder="sats laut Wallet" inputmode="numeric" required>
+  <input name="notiz" placeholder="Notiz"><button class="small">eintragen</button></form>
+
+<h2>Kurse</h2>
+<p>{% if kurse.letzter %}Letzter Kurs: {{ kurse.letzter.eur }} € je BTC am {{ kurse.letzter.datum|date_de }} ({{ kurse.letzter.quelle }}) · {{ kurse.anzahl }} Tage gespeichert{% else %}Noch keine Kurse.{% endif %}
+  {% if kurse.luecken %}· <b>{{ kurse.luecken|length }} Lücken</b>, z. B. {{ kurse.luecken[:5]|join(", ") }}{% endif %}</p>
+<p class="muted">Abruf der Tageskurse (Kraken XBT/EUR, Schlusskurs des UTC-Tags): <code>kontor btc kurse --abrufen</code>. Die Abfrage nennt nur das Handelspaar.</p>
+<form method="post" action="{{ M }}/bitcoin/kurs" class="inline"><input type="hidden" name="jahr" value="{{ year }}">
+  <input name="datum" placeholder="JJJJ-MM-TT" size="10" required><input name="eur" placeholder="EUR je BTC" required><button class="small">Kurs von Hand</button></form>
+{% endblock %}

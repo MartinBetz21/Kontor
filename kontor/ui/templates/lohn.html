@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}Lohn {{ monat }}{% endblock %}
+{% block main %}
+<h1>Lohn {{ monat }}</h1>
+{% set tab = "monat" %}<nav class="tabs"><a href="{{ M }}/lohn?monat={{ (monat or (jahr ~ '-01')) }}" class="{{ 'on' if tab == 'monat' }}">Abrechnung</a><a href="{{ M }}/lohn/jahr?jahr={{ (jahr or monat[:4]) }}" class="{{ 'on' if tab == 'jahr' }}">Meldungen &amp; ELStAM</a><a href="{{ M }}/lohn/mitarbeiter/neu" class="{{ 'on' if tab == 'neu' }}">Mitarbeiter anlegen</a></nav>
+<form method="get" class="filters"><label>Monat<input name="monat" value="{{ monat }}" placeholder="JJJJ-MM" style="width:7em" onchange="this.form.submit()"></label></form>
+{% if findings %}<div class="error"><ul>{% for f in findings %}<li>{{ f }}</li>{% endfor %}</ul></div>{% endif %}
+
+<p class="muted">Entwürfe rechnet Kontor bei jedem Aufruf neu. Festschreiben speichert die Abrechnung unveränderlich und legt die Entgeltbescheinigung ins Archiv; erst dann bucht sie.</p>
+<table class="list"><tr><th>Mitarbeiter</th><th>Status</th><th class="num">Brutto</th><th class="num">Lohnsteuer</th><th class="num">SV AN</th><th class="num">Netto</th><th class="num">Auszahlung</th><th class="num">AG-Kosten</th><th></th></tr>
+{% for r in rows %}<tr><td><a href="{{ M }}/lohn/mitarbeiter/{{ r.mitarbeiter_id }}">{{ r.name }}</a> <span class="muted">{{ r.personalnr }}</span></td>
+{% if r.status == "fehler" %}<td colspan="7" class="error">{{ r.fehler }}</td><td></td>
+{% else %}{% set s = r.summen %}<td>{{ "festgeschrieben" if r.status == "fest" else "Entwurf" }}</td>
+  <td class="num">{{ s.brutto|eur }}</td><td class="num">{{ (s.lst + s.soli + s.kist + s.kist_ehegatte)|eur }}</td><td class="num">{{ s.sv_an|eur }}</td><td class="num">{{ s.netto|eur }}</td><td class="num">{{ s.auszahlung|eur }}</td><td class="num">{{ s.ag_kosten|eur }}</td>
+  <td>{% if r.status == "fest" %}<a href="{{ M }}/lohn/abrechnung/{{ r.id }}">ansehen</a> · <a href="{{ M }}/lohn/abrechnung/{{ r.id }}/pdf">PDF</a>
+    {% else %}<a href="{{ M }}/lohn/vorschau/{{ r.mitarbeiter_id }}/{{ monat }}">Vorschau</a>
+    {% if r.fehlende_vormonate %}<form method="post" action="{{ M }}/lohn/festschreiben-bis" class="inline" data-ask="{{ r.name }}: {{ r.fehlende_vormonate|join(', ') }} und {{ monat }} der Reihe nach festschreiben?"><input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="mitarbeiter" value="{{ r.mitarbeiter_id }}"><input type="hidden" name="monat" value="{{ monat }}"><button class="small">{{ r.fehlende_vormonate[0] }} bis {{ monat }} festschreiben</button></form>
+    {% else %}<form method="post" action="{{ M }}/lohn/festschreiben" class="inline" data-ask="Abrechnung {{ monat }} für {{ r.name }} festschreiben?"><input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="mitarbeiter" value="{{ r.mitarbeiter_id }}"><input type="hidden" name="monat" value="{{ monat }}"><button class="small">festschreiben</button></form>{% endif %}{% endif %}</td>{% endif %}</tr>
+{% else %}<tr><td colspan="9" class="muted">Im {{ monat }} ist niemand beschäftigt. <a href="{{ M }}/lohn/mitarbeiter/neu">Mitarbeiter anlegen</a></td></tr>{% endfor %}</table>
+
+<h2>Beiträge je Kasse <span class="muted">· für den Beitragsnachweis</span></h2>
+<p class="muted">Kontor übermittelt keine Meldungen an die Sozialversicherung (Beitragsnachweis, DEÜV-Meldungen). Das geht über sv.net oder ein dafür zugelassenes Programm; die Werte stehen hier.</p>
+<table class="list"><tr><th>Kasse</th><th class="num">KV</th><th class="num">RV</th><th class="num">AV</th><th class="num">PV</th><th class="num">Pauschal KV/RV</th><th class="num">U1</th><th class="num">U2</th><th class="num">Insolvenzgeld</th><th class="num">Pauschsteuer</th><th class="num">Summe</th></tr>
+{% for k in kassen %}<tr><td>{{ k.kasse }} <span class="muted">· {{ k.mitarbeiter }}</span></td><td class="num">{{ k.kv|eur }}</td><td class="num">{{ k.rv|eur }}</td><td class="num">{{ k.av|eur }}</td><td class="num">{{ k.pv|eur }}</td><td class="num">{{ (k.kv_pauschal + k.rv_pauschal)|eur }}</td><td class="num">{{ k.u1|eur }}</td><td class="num">{{ k.u2|eur }}</td><td class="num">{{ k.insolvenz|eur }}</td><td class="num">{{ k.pauschsteuer|eur }}</td><td class="num"><b>{{ k.summe|eur }}</b></td></tr>
+{% else %}<tr><td colspan="11" class="muted">Keine Beiträge im {{ monat }} (oder noch nichts festgeschrieben).</td></tr>{% endfor %}</table>
+
+<h2>Mitarbeiter</h2>
+<table class="list"><tr><th>Nr.</th><th>Name</th><th>Tätigkeit</th><th>Eintritt</th><th>Austritt</th></tr>
+{% for m in alle %}<tr><td>{{ m.personalnr }}</td><td><a href="{{ M }}/lohn/mitarbeiter/{{ m.id }}">{{ m.name }}</a></td><td>{{ m.taetigkeit }}</td><td>{{ m.eintritt|date_de }}</td><td>{{ m.austritt|date_de if m.austritt else "" }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">noch keine</td></tr>{% endfor %}</table>
+{% endblock %}

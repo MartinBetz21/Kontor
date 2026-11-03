@@ -6,6 +6,7 @@
   <div class="card"><span>Umsatzsteuer {{ o.period }} (vorläufig)</span><b>{{ o.estimate|eur }}</b><small>Frist {{ o.deadline|date_de }}</small></div>
   {% if profil.gewinnermittlung == "bilanz" %}<div class="card"><span>Jahresergebnis (vorläufig, Journal)</span><b>{{ ergebnis|eur if ergebnis is not none else "–" }}</b>{% if ergebnis is none %}<small>Journal noch leer</small>{% endif %}</div>
   {% else %}<div class="card"><span>Gewinn im Jahr (EÜR)</span><b>{{ o.profit_ytd|eur }}</b></div>{% endif %}
+  {% if bitcoin %}<div class="card"><span>Bitcoin-Bestand</span><b><a href="{{ M }}/bitcoin">{{ bitcoin.sats|btc }} BTC</a></b><small>Buchwert {{ bitcoin.buchwert|eur }}{% if bitcoin.marktwert is not none %} · Marktwert {{ bitcoin.marktwert|eur }}{% endif %}</small></div>{% endif %}
   <div class="card"><span>Belege im Eingang</span><b><a href="{{ M }}/belege">{{ o.inbox }}</a></b></div>
 </div>
 {% if o.followups %}<h2>Nachfassen</h2>
@@ -21,6 +22,11 @@
 <table class="list"><tr><th>Nummer</th><th>Kunde</th><th>Fällig</th><th class="num">Offen</th></tr>
 {% for d in o.open_invoices %}<tr class="{{ 'late' if d.overdue }}"><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ d.number }}</a></td><td>{{ d.customer.company or d.customer.contact }}</td><td>{{ d.due_date|date_de }}</td><td class="num">{{ d.open|eur }}</td></tr>
 {% else %}<tr><td colspan="4" class="muted">Keine offenen Rechnungen.</td></tr>{% endfor %}</table>
+{% if o.unbilled %}<h2>Zahlungen ohne Rechnung</h2>
+<p class="muted">Die Umsatzsteuer zählt schon. Rechnung abschließen, dann übernimmt sie die Zahlung (<code>kontor zahlung verknuepfen</code>).</p>
+<table class="list"><tr><th>Eingang</th><th>Notiz</th><th class="num">Betrag</th></tr>
+{% for p in o.unbilled %}<tr class="late"><td>{{ p.pay_date|date_de }}</td><td>{{ p.note }}</td><td class="num">{{ p.amount|eur }}</td></tr>{% endfor %}</table>
+{% endif %}
 <h2>Entwürfe</h2>
 <table class="list"><tr><th>Art</th><th>Kunde</th><th>Betreff</th><th class="num">Brutto</th></tr>
 {% for d in o.drafts %}<tr><td><a href="{{ M }}/dokumente/{{ d.id }}">{{ KIND_LABELS[d.kind] }}</a></td><td>{{ d.customer.company or d.customer.contact or "—" }}</td><td>{{ d.subject }}</td><td class="num">{{ d.gross|eur }}</td></tr>

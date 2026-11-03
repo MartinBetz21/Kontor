@@ -6,10 +6,11 @@
 
 Exit 1, sobald etwas gefunden wird. Die Regeln sind allgemein: Zertifikate und Schlüssel, Datenbanken und
 Datenordner, ELSTER-Werte (Hersteller-ID, PIN), echte IBANs und E-Mail-Adressen, Pfade aus dem eigenen Rechner,
-Zugangsschlüssel, abgeschaltete Rückfragen für KI-Agenten. Erfundene Testwerte stehen unten in den Erlaubnislisten.
+Zugangsschlüssel, abgeschaltete Rückfragen für KI-Agenten, Bitcoin-Adressen, xpubs und Transaktions-IDs. Erfundene Testwerte stehen unten in den Erlaubnislisten.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 import sys
@@ -41,6 +42,8 @@ BINAER_ERLAUBT = {"kontor/render/assets/fonts/archivo-400.ttf", "kontor/render/a
 IBAN_ERLAUBT = {"DE89370400440532013000", "DE02120300000000202051", "DE47123456782222222222",
                 "DE97123456783333333333", "DE21876543214444444444", "DE94123456781111111111"}
 HERSTELLER_ERLAUBT = {"12345", "00000"}
+# Bitcoin: erfundene Werte ohne gültige Prüfsumme bzw. ohne echte Transaktion (tests/test_bitcoin.py)
+BTC_ERLAUBT = {"bc1qtestwertnurfuertests0000000000000000", "0123456789abcdef" * 4}
 
 _PRIV, _CERT = "PRIV" + "ATE KEY", "CERTI" + "FICATE"      # zusammengesetzt, damit diese Datei sich nicht selbst meldet
 INHALT = [
@@ -61,6 +64,47 @@ INHALT = [
 IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[0-9A-Z]{4}){3,7}(?: ?[0-9A-Z]{1,4})?\b")
 MAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 MAIL_ERLAUBT = re.compile(r"@(example\.(com|org|net)|users\.noreply\.github\.com)$|^noreply@")
+XPUB = re.compile(r"[xyztuvYZUV]pub[1-9A-HJ-NP-Za-km-z]{100,}")
+BECH32 = re.compile(r"\b(?:bc1|tb1|bcrt1)[02-9ac-hj-np-z]{11,71}\b")
+BASE58 = re.compile(r"\b[13][1-9A-HJ-NP-Za-km-z]{25,34}\b")
+HEX64 = re.compile(r"\b[0-9a-fA-F]{64}\b")
+TX_WORT = re.compile(r"(?i)txid|tx[_ -]?id|transaction|transaktion|\btx\b")
+_B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def base58check(s: str) -> bool:
+    """Gültige Base58Check-Prüfsumme (doppeltes SHA-256): nur dann ist es eine Adresse, keine zufällige Kennung."""
+    n = 0
+    for ch in s:
+        n = n * 58 + _B58.index(ch)
+    raw = n.to_bytes((n.bit_length() + 7) // 8, "big")
+    raw = b"\0" * (len(s) - len(s.lstrip("1"))) + raw
+    return len(raw) == 25 and hashlib.sha256(hashlib.sha256(raw[:-4]).digest()).digest()[:4] == raw[-4:]
+
+
+def bitcoin_funde(text: str) -> list[str]:
+    """Erweiterte öffentliche Schlüssel, Adressen (bech32, Base58 mit Prüfsumme) und Transaktions-IDs. 64 Hex-Zeichen
+    gelten nur in einer Zeile mit txid/transaction/tx als Transaktions-ID, nicht etwa ein SHA-256 einer Datei."""
+    out = []
+    for m in XPUB.finditer(text):
+        out.append(f"erweiterter öffentlicher Schlüssel ({m.group()[:12]}…)")
+    for m in BECH32.finditer(text):
+        if m.group() not in BTC_ERLAUBT:
+            out.append(f"Bitcoin-Adresse {m.group()[:14]}…")
+    for m in BASE58.finditer(text):
+        if base58check(m.group()):
+            out.append(f"Bitcoin-Adresse {m.group()[:10]}…")
+    lines = text.splitlines()
+    for m in HEX64.finditer(text):
+        if m.group().lower() in BTC_ERLAUBT:
+            continue
+        n = text.count("\n", 0, m.start())
+        nah = " ".join(lines[max(n - 1, 0):n + 1])          # dieselbe Zeile oder die Kopfzeile darüber (CSV)
+        if TX_WORT.search(nah):
+            out.append(f"Transaktions-ID {m.group()[:12]}…")
+    return out
+
+
 HERSTELLER = re.compile(r"<HerstellerID>(\d+)</HerstellerID>|elster_hersteller_id[\"']?\s*[:=]\s*[\"'](\d+)")
 
 
@@ -110,6 +154,7 @@ def pruefe(dateien: list[tuple[str, bytes]]) -> list[str]:
         for m in MAIL.finditer(text):
             if not MAIL_ERLAUBT.search(m.group()):
                 funde.append(f"{name}: E-Mail-Adresse {m.group()} (nur @example.com/org/net)")
+        funde += [f"{name}: {f}" for f in bitcoin_funde(text)]
         for m in HERSTELLER.finditer(text):
             if (m.group(1) or m.group(2)) not in HERSTELLER_ERLAUBT:
                 funde.append(f"{name}: ELSTER-Hersteller-ID {m.group(1) or m.group(2)}")

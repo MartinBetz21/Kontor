@@ -10,7 +10,7 @@
 {% for kz, f in u.fields.items() %}<tr class="{{ 'muted' if not (f.basis or f.tax) }}"><td><b>{{ kz }}</b></td><td>{{ f.label }}</td>
 <td class="num">{{ (f.basis ~ " €") if f.basis is not none else "" }}</td><td class="num">{{ f.tax|eur if f.tax is not none else "" }}</td></tr>{% endfor %}</table>
 <details><summary>Grundlagen anzeigen</summary>
-  <h3>Einnahmen (Zahlungseingang im Zeitraum)</h3><ul>{% for e in u.details.einnahmen %}<li>{{ e.pay_date|date_de }} · {{ e.number }} · {{ e.amount|eur }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
+  <h3>Einnahmen (Zahlungseingang im Zeitraum)</h3><ul>{% for e in u.details.einnahmen %}<li>{{ e.pay_date|date_de }} · {{ e.number }}{% if not e.customer_json and e.note %} ({{ e.note }}){% endif %} · {{ e.amount|eur }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
   <h3>Vorsteuer (Rechnungsdatum im Zeitraum)</h3><ul>{% for v in u.details.vorsteuer %}<li>{{ v.receipt_date|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.supplier }}</a> · Steuer {{ v.tax|eur }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
   <h3>Reverse Charge (Belegdatum im Zeitraum)</h3><ul>{% for v in u.details.reverse_charge %}<li>{{ v.receipt_date|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.supplier }}</a> · netto {{ v.net|eur }} · {{ TAX_KINDS[v.tax_kind] }}</li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
   <p class="muted">Vereinnahmt exakt: 19 % netto {{ u.exact["19"].net|eur }}, Steuer {{ u.exact["19"].tax|eur }}. ELSTER rechnet die Steuer aus der abgerundeten Bemessungsgrundlage neu.</p>

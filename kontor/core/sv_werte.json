@@ -1,0 +1,223 @@
+{
+ "_hinweis": "Alle Werte mit Quelle (Gesetz, amtliche Seite, Abrufdatum). Prozentsätze als Text für Decimal, Beträge in ganzen Cent. Bei neuem Jahr: Block kopieren und jede Zahl mit Quelle prüfen.",
+ "2025": {
+  "kv_allgemein": {
+   "wert": "14.6",
+   "quelle": "§ 241 SGB V (gesetze-im-internet.de/sgb_5/__241.html); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "kv_ermaessigt": {
+   "wert": "14.0",
+   "quelle": "§ 243 SGB V (gesetze-im-internet.de/sgb_5/__243.html); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "kv_zusatz_durchschnitt": {
+   "wert": "2.5",
+   "quelle": "2,5 % laut Bekanntmachung des BMG im Bundesanzeiger vom 07.11.2024 (§ 242a Abs. 2 SGB V); nur Richtgröße und Rechenwert für Faktor F und PKV-Zuschuss, den Satz der Kasse liefert der Aufrufer; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "rv": {
+   "wert": "18.6",
+   "quelle": "§ 158 SGB VI, Beitragssatz 18,6 % unverändert, Bekanntmachung im BGBl. am 27.11.2024; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "av": {
+   "wert": "2.6",
+   "quelle": "§ 341 Abs. 2 SGB III (gesetze-im-internet.de/sgb_3/__341.html); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "pv": {
+   "wert": "3.6",
+   "quelle": "§ 55 Abs. 1 SGB XI i. V. m. Pflege-Beitragssatz-Anpassungsverordnung 2025 (3,6 % seit 01.01.2025); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22); BMG Finanzierung der Pflegeversicherung (bundesgesundheitsministerium.de/themen/pflege/online-ratgeber-pflege/die-pflegeversicherung/finanzierung)"
+  },
+  "pv_kinderlosenzuschlag": {
+   "wert": "0.6",
+   "quelle": "§ 55 Abs. 3 Satz 1 SGB XI (gesetze-im-internet.de/sgb_11/__55.html), trägt der Beschäftigte allein (§ 58 Abs. 1 Satz 3 SGB XI), ab Ablauf des Monats des 23. Geburtstags; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "pv_abschlag_je_kind": {
+   "wert": "0.25",
+   "quelle": "§ 55 Abs. 3 Satz 4 SGB XI: 0,25 Beitragssatzpunkte je Kind ab dem 2. bis zum 5. Kind bis zum 25. Geburtstag, nur Beschäftigtenanteil; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "pv_abschlag_max_kinder": {
+   "wert": 4,
+   "quelle": "§ 55 Abs. 3 Satz 4 SGB XI: Abschlag für das 2. bis 5. Kind, also höchstens 4 Kinder, zusammen höchstens 1,0 Punkte"
+  },
+  "pv_sachsen_an_allein": {
+   "wert": "1.0",
+   "quelle": "§ 58 Abs. 3 Satz 1 SGB XI (gesetze-im-internet.de/sgb_11/__58.html): Beschäftigte in Sachsen tragen 1 Beitragssatzpunkt allein (AN 2,3 %, AG 1,3 %); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "pv_sachsen_an_allein_halber_satz": {
+   "wert": "0.5",
+   "quelle": "§ 58 Abs. 3 Satz 2 SGB XI: bei halbem PV-Beitragssatz (Beihilfeberechtigte) 0,5 Punkte allein"
+  },
+  "bbg_kv_monat": {
+   "wert": 551250,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2025: BBG Kranken- und Pflegeversicherung; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "bbg_kv_jahr": {
+   "wert": 6615000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2025: Jahres-BBG Kranken- und Pflegeversicherung (12 x Monatswert); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "bbg_rv_monat": {
+   "wert": 805000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2025: BBG allgemeine Renten- und Arbeitslosenversicherung, bundeseinheitlich (ohne West/Ost); lohn-info.de/sozialversicherungsbeitraege2025.html: 2024 war das letzte Jahr mit getrennten Grenzen (abgerufen 2026-10-22)"
+  },
+  "bbg_rv_jahr": {
+   "wert": 9660000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2025: Jahres-BBG allgemeine Renten- und Arbeitslosenversicherung (12 x Monatswert); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "jaeg_jahr": {
+   "wert": 7380000,
+   "quelle": "allgemeine JAEG 2025 73.800 EUR (Sozialversicherungs-Rechengrößenverordnung 2025); nur Information, wird nicht gerechnet"
+  },
+  "geringfuegigkeitsgrenze": {
+   "wert": 55600,
+   "quelle": "12,82 EUR x 130 / 3, aufgerundet = 556 EUR (§ 8 Abs. 1a SGB IV; Mindestlohn 2025 12,82 EUR); lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "uebergang_obergrenze": {
+   "wert": 200000,
+   "quelle": "§ 20 Abs. 2 SGB IV (gesetze-im-internet.de/sgb_4/__20.html): 2.000 EUR seit 01.01.2023"
+  },
+  "faktor_f": {
+   "wert": "0.6683",
+   "quelle": "§ 20 Abs. 2a SGB IV: F = 28 % / Gesamtsozialversicherungsbeitragssatz 2025 (41,9 % = 18,6 + 2,6 + 3,6 + 14,6 + 2,5), auf vier Stellen gerundet; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22); lohn-info.de/uebergangsbereich_gleitzone_2025.html (abgerufen 2026-10-22)"
+  },
+  "azubi_geringverdiener": {
+   "wert": 32500,
+   "quelle": "§ 20 Abs. 3 Satz 1 Nr. 1 SGB IV (gesetze-im-internet.de/sgb_4/__20.html): Auszubildende bis 325 EUR im Monat, Arbeitgeber trägt den Gesamtbeitrag allein; Barmer Sozialversicherungswerte 2026 (abgerufen 2026-10-22)"
+  },
+  "minijob_kv_pauschal": {
+   "wert": "13",
+   "quelle": "§ 249b Satz 1 SGB V (gesetze-im-internet.de/sgb_5/__249b.html): 13 % des Arbeitsentgelts, nur wenn der Beschäftigte gesetzlich krankenversichert ist (Beitragsgruppe KV 6)"
+  },
+  "minijob_rv_pauschal": {
+   "wert": "15",
+   "quelle": "§ 172 Abs. 3 SGB VI und § 168 Abs. 1 Nr. 1b SGB VI (gesetze-im-internet.de/sgb_6/__168.html): Arbeitgeber 15 % des Arbeitsentgelts"
+  },
+  "minijob_rv_mindestbemessung": {
+   "wert": 17500,
+   "quelle": "§ 163 Abs. 8 SGB VI (gesetze-im-internet.de/sgb_6/__163.html): mindestens 175 EUR beitragspflichtige Einnahme, gilt unverändert; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  },
+  "minijob_pauschsteuer": {
+   "wert": "2",
+   "quelle": "§ 40a Abs. 2 EStG: 2 % einheitliche Pauschsteuer (Beitragsübersicht Minijob-Zentrale, magazin.minijob-zentrale.de/minijob-beitraege-2026, abgerufen 2026-10-22); der Satz wird hier nur genannt, die Steuer rechnet der Aufrufer"
+  },
+  "umlage_u1_minijob": {
+   "wert": "1.1",
+   "quelle": "Minijob-Zentrale: U1 1,10 % im Jahr 2025 (informationsportal.de/entgeltfortzahlung-u2-fuer-minijobs-sinkt, 2026-10-22; Gegenprobe AOK Beiträge für Minijobs 2025); Satz der Minijob-Zentrale, eine Krankenkasse setzt für Beschäftigte über der Geringfügigkeitsgrenze eigene Sätze fest (als Parameter u1/u2)"
+  },
+  "umlage_u2_minijob": {
+   "wert": "0.22",
+   "quelle": "Minijob-Zentrale senkt U2 zum 01.01.2025 von 0,24 % auf 0,22 % (informationsportal.de/entgeltfortzahlung-u2-fuer-minijobs-sinkt, 2026-10-22)"
+  },
+  "insolvenzgeldumlage": {
+   "wert": "0.15",
+   "quelle": "§ 360 SGB III (gesetze-im-internet.de/sgb_3/__360.html): 0,15 %, 2023 und 2024 war per InsoGeldFestV 0,06 %, ab 2025 wieder 0,15 %; lohn-info.de/sozialversicherungsbeitraege2025.html (abgerufen 2026-10-22)"
+  }
+ },
+ "2026": {
+  "kv_allgemein": {
+   "wert": "14.6",
+   "quelle": "§ 241 SGB V (gesetze-im-internet.de/sgb_5/__241.html); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "kv_ermaessigt": {
+   "wert": "14.0",
+   "quelle": "§ 243 SGB V (gesetze-im-internet.de/sgb_5/__243.html); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "kv_zusatz_durchschnitt": {
+   "wert": "2.9",
+   "quelle": "2,9 % laut Bekanntmachung des BMG im Bundesanzeiger vom 10.11.2025 (§ 242a Abs. 2 SGB V); nur Richtgröße und Rechenwert für Faktor F und PKV-Zuschuss, den Satz der Kasse liefert der Aufrufer; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "rv": {
+   "wert": "18.6",
+   "quelle": "§ 158 SGB VI, Beitragssatz 18,6 % unverändert, Bekanntmachung im BGBl. am 28.11.2025; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "av": {
+   "wert": "2.6",
+   "quelle": "§ 341 Abs. 2 SGB III (gesetze-im-internet.de/sgb_3/__341.html); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "pv": {
+   "wert": "3.6",
+   "quelle": "§ 55 Abs. 1 SGB XI i. V. m. Pflege-Beitragssatz-Anpassungsverordnung 2025 (3,6 % seit 01.01.2025); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22); BMG Finanzierung der Pflegeversicherung (bundesgesundheitsministerium.de/themen/pflege/online-ratgeber-pflege/die-pflegeversicherung/finanzierung)"
+  },
+  "pv_kinderlosenzuschlag": {
+   "wert": "0.6",
+   "quelle": "§ 55 Abs. 3 Satz 1 SGB XI (gesetze-im-internet.de/sgb_11/__55.html), trägt der Beschäftigte allein (§ 58 Abs. 1 Satz 3 SGB XI), ab Ablauf des Monats des 23. Geburtstags; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "pv_abschlag_je_kind": {
+   "wert": "0.25",
+   "quelle": "§ 55 Abs. 3 Satz 4 SGB XI: 0,25 Beitragssatzpunkte je Kind ab dem 2. bis zum 5. Kind bis zum 25. Geburtstag, nur Beschäftigtenanteil; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "pv_abschlag_max_kinder": {
+   "wert": 4,
+   "quelle": "§ 55 Abs. 3 Satz 4 SGB XI: Abschlag für das 2. bis 5. Kind, also höchstens 4 Kinder, zusammen höchstens 1,0 Punkte"
+  },
+  "pv_sachsen_an_allein": {
+   "wert": "1.0",
+   "quelle": "§ 58 Abs. 3 Satz 1 SGB XI (gesetze-im-internet.de/sgb_11/__58.html): Beschäftigte in Sachsen tragen 1 Beitragssatzpunkt allein (AN 2,3 %, AG 1,3 %); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "pv_sachsen_an_allein_halber_satz": {
+   "wert": "0.5",
+   "quelle": "§ 58 Abs. 3 Satz 2 SGB XI: bei halbem PV-Beitragssatz (Beihilfeberechtigte) 0,5 Punkte allein"
+  },
+  "bbg_kv_monat": {
+   "wert": 581250,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2026: BBG Kranken- und Pflegeversicherung; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "bbg_kv_jahr": {
+   "wert": 6975000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2026: Jahres-BBG Kranken- und Pflegeversicherung (12 x Monatswert); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "bbg_rv_monat": {
+   "wert": 845000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2026: BBG allgemeine Renten- und Arbeitslosenversicherung, bundeseinheitlich (ohne West/Ost); Minijob-Zentrale: ab 01.01.2026 entfällt die Rechtskreistrennung (magazin.minijob-zentrale.de/minijob-beitraege-2026); Barmer Sozialversicherungswerte 2026 (abgerufen 2026-10-22)"
+  },
+  "bbg_rv_jahr": {
+   "wert": 10140000,
+   "quelle": "Sozialversicherungs-Rechengrößenverordnung 2026: Jahres-BBG allgemeine Renten- und Arbeitslosenversicherung (12 x Monatswert); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "jaeg_jahr": {
+   "wert": 7740000,
+   "quelle": "allgemeine JAEG 2026 77.400 EUR (Sozialversicherungs-Rechengrößenverordnung 2026; Barmer Sozialversicherungswerte 2026, abgerufen 2026-10-22); nur Information, wird nicht gerechnet"
+  },
+  "geringfuegigkeitsgrenze": {
+   "wert": 60300,
+   "quelle": "13,90 EUR x 130 / 3, aufgerundet = 603 EUR (§ 8 Abs. 1a SGB IV; Mindestlohn 2026 13,90 EUR; Bekanntmachung im Bundesanzeiger 20.11.2025); lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "uebergang_obergrenze": {
+   "wert": 200000,
+   "quelle": "§ 20 Abs. 2 SGB IV (gesetze-im-internet.de/sgb_4/__20.html): 2.000 EUR seit 01.01.2023"
+  },
+  "faktor_f": {
+   "wert": "0.6619",
+   "quelle": "§ 20 Abs. 2a SGB IV: F = 28 % / Gesamtsozialversicherungsbeitragssatz 2026 (42,3 % = 18,6 + 2,6 + 3,6 + 14,6 + 2,9), auf vier Stellen gerundet; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22); lohn-info.de/uebergangsbereich_gleitzone_2026.html (abgerufen 2026-10-22)"
+  },
+  "azubi_geringverdiener": {
+   "wert": 32500,
+   "quelle": "§ 20 Abs. 3 Satz 1 Nr. 1 SGB IV (gesetze-im-internet.de/sgb_4/__20.html): Auszubildende bis 325 EUR im Monat, Arbeitgeber trägt den Gesamtbeitrag allein; Barmer Sozialversicherungswerte 2026 (abgerufen 2026-10-22)"
+  },
+  "minijob_kv_pauschal": {
+   "wert": "13",
+   "quelle": "§ 249b Satz 1 SGB V (gesetze-im-internet.de/sgb_5/__249b.html): 13 % des Arbeitsentgelts, nur wenn der Beschäftigte gesetzlich krankenversichert ist (Beitragsgruppe KV 6)"
+  },
+  "minijob_rv_pauschal": {
+   "wert": "15",
+   "quelle": "§ 172 Abs. 3 SGB VI und § 168 Abs. 1 Nr. 1b SGB VI (gesetze-im-internet.de/sgb_6/__168.html): Arbeitgeber 15 % des Arbeitsentgelts"
+  },
+  "minijob_rv_mindestbemessung": {
+   "wert": 17500,
+   "quelle": "§ 163 Abs. 8 SGB VI (gesetze-im-internet.de/sgb_6/__163.html): mindestens 175 EUR beitragspflichtige Einnahme, gilt unverändert; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  },
+  "minijob_pauschsteuer": {
+   "wert": "2",
+   "quelle": "§ 40a Abs. 2 EStG: 2 % einheitliche Pauschsteuer (Beitragsübersicht Minijob-Zentrale, magazin.minijob-zentrale.de/minijob-beitraege-2026, abgerufen 2026-10-22); der Satz wird hier nur genannt, die Steuer rechnet der Aufrufer"
+  },
+  "umlage_u1_minijob": {
+   "wert": "0.8",
+   "quelle": "Minijob-Zentrale: U1 seit 01.01.2026 0,8 % statt 1,1 % (magazin.minijob-zentrale.de/minijob-beitraege-2026, abgerufen 2026-10-22); Satz der Minijob-Zentrale, eine Krankenkasse setzt für Beschäftigte über der Geringfügigkeitsgrenze eigene Sätze fest (als Parameter u1/u2)"
+  },
+  "umlage_u2_minijob": {
+   "wert": "0.22",
+   "quelle": "Minijob-Zentrale: Beitragsübersicht 2026 gewerbliche Minijobs, Umlage 2 = 0,22 % (magazin.minijob-zentrale.de/minijob-beitraege-2026, abgerufen 2026-10-22)"
+  },
+  "insolvenzgeldumlage": {
+   "wert": "0.15",
+   "quelle": "§ 360 SGB III (gesetze-im-internet.de/sgb_3/__360.html): 0,15 %, 2023 und 2024 war per InsoGeldFestV 0,06 %, ab 2025 wieder 0,15 %; lohn-info.de/sozialversicherungsbeitraege2026.html (abgerufen 2026-10-22)"
+  }
+ }
+}

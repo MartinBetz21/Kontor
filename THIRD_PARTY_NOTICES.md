@@ -5,6 +5,7 @@
 | `kontor/ui/static/htmx.min.js` | htmx 2.0.4, https://github.com/bigskysoftware/htmx | Zero-Clause BSD (0BSD) |
 | `kontor/render/assets/fonts/archivo-400.ttf`, `archivo-600.ttf` | Archivo by The Archivo Project Authors, https://github.com/Omnibus-Type/Archivo | SIL Open Font License 1.1, see `kontor/render/assets/fonts/OFL.txt` |
 | `kontor/elster/taxonomie_6_8.json` | Derived with `tools/ebilanz_taxonomie.py` from the official HGB taxonomy 6.8 (Kerntaxonomie, MicroBilG view) published by the German tax administration on esteuer.de | Official publication of the German tax administration (amtlich vorgeschriebener Datensatz, published with BMF letter of 27 May 2024 on esteuer.de). Converted to JSON without changing names or labels. Valid for fiscal years starting after 31 December 2024; fiscal years starting after 31 December 2025 need version 6.9. |
+| `kontor/core/pap/Lohnsteuer2025.xml`, `Lohnsteuer2026.xml` | Programmablaufplan für den maschinellen Lohnsteuerabzug (XML-Pseudocode) of the German Federal Ministry of Finance (BMF), downloaded unchanged from https://www.bmf-steuerrechner.de/interface/pseudocodes.xhtml (2025: Stand 2025-09-17, 2026: Stand 2025-10-23) | Official work (amtliches Werk, § 5 UrhG), not protected by copyright. Read at runtime by `kontor/core/lohnsteuer.py`; a new year is a new file from the BMF page. |
 
 Not included, download yourself if you need them:
 

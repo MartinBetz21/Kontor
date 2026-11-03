@@ -20,8 +20,12 @@
   <label class="wide">Warum kein Originalbeleg<input name="reason" required></label>
   <div class="actions"><button>Eigenbeleg anlegen</button></div></form></details>
 <form method="post" action="{{ M }}/belege/abholen"><button class="secondary">Telegram-Eingang abholen</button></form>
-<table class="list"><tr><th>Datum</th><th>Lieferant</th><th>Kategorie</th><th>Steuer</th><th class="num">Brutto</th><th>Herkunft</th></tr>
-{% for r in items %}<tr><td><a href="{{ M }}/belege/{{ r.id }}">{{ r.receipt_date|date_de or "ohne Datum" }}</a></td><td>{{ r.supplier or r.original_name }}</td>
-<td>{{ r.category or "" }}</td><td>{{ TAX_KINDS[r.tax_kind] if r.tax_kind else ("gemischt" if r.status == "geprueft" else "") }}</td><td class="num">{{ r.gross|eur if r.gross is not none else "" }}</td><td>{{ r.origin }}</td></tr>
-{% else %}<tr><td colspan="6" class="muted">Keine Belege.</td></tr>{% endfor %}</table>
+{% set inbox = status == "eingang" %}{% if inbox %}<form method="post" action="{{ M }}/belege/bestaetigen">{% endif %}
+<table class="list"><tr>{% if inbox %}<th></th>{% endif %}<th>Datum</th><th>Lieferant</th><th>Kategorie</th><th>Steuer</th><th class="num">Brutto</th><th>Herkunft</th>{% if inbox %}<th></th>{% endif %}</tr>
+{% for r in items %}<tr>{% if inbox %}<td>{% if not r.fehlt %}<input type="checkbox" name="ids" value="{{ r.id }}" aria-label="auswählen">{% endif %}</td>{% endif %}<td><a href="{{ M }}/belege/{{ r.id }}">{{ r.receipt_date|date_de or "ohne Datum" }}</a></td><td>{{ r.supplier or r.original_name }}</td>
+<td>{{ r.category or "" }}</td><td>{{ TAX_KINDS[r.tax_kind] if r.tax_kind else ("gemischt" if r.status == "geprueft" else "") }}</td><td class="num">{{ r.gross|eur if r.gross is not none else "" }}</td><td>{{ r.origin }}</td>
+{% if inbox %}<td>{% if r.fehlt %}<span class="muted">fehlt: {{ r.fehlt|join(", ") }}</span>{% else %}<button name="ids" value="{{ r.id }}" class="secondary">Bestätigen</button>{% endif %}</td>{% endif %}</tr>
+{% else %}<tr><td colspan="8" class="muted">Keine Belege.</td></tr>{% endfor %}</table>
+{% if inbox and items|rejectattr("fehlt")|list %}<div class="actions"><button>Ausgewählte bestätigen</button></div>{% endif %}
+{% if inbox %}</form>{% endif %}
 {% endblock %}

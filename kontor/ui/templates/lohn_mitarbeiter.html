@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% block title %}{{ m.name if m else "Neuer Mitarbeiter" }}{% endblock %}
+{% block main %}
+<h1>{{ m.name if m else "Neuer Mitarbeiter" }}</h1>
+{% set tab = "neu" if not m else "" %}{% set jahr = monat[:4] %}<nav class="tabs"><a href="{{ M }}/lohn?monat={{ (monat or (jahr ~ '-01')) }}" class="{{ 'on' if tab == 'monat' }}">Abrechnung</a><a href="{{ M }}/lohn/jahr?jahr={{ (jahr or monat[:4]) }}" class="{{ 'on' if tab == 'jahr' }}">Meldungen &amp; ELStAM</a><a href="{{ M }}/lohn/mitarbeiter/neu" class="{{ 'on' if tab == 'neu' }}">Mitarbeiter anlegen</a></nav>
+
+<form method="post" action="{{ M }}/lohn/mitarbeiter{% if m %}/{{ m.id }}{% endif %}" class="grid">
+  <h2 class="wide">Stammdaten</h2>
+  <label>Personalnummer<input name="personalnr" value="{{ m.personalnr if m }}" required></label>
+  <label>Vorname<input name="vorname" value="{{ m.vorname if m }}" required></label>
+  <label>Nachname<input name="nachname" value="{{ m.nachname if m }}" required></label>
+  <label>Geburtsdatum<input name="geburtsdatum" value="{{ m.geburtsdatum if m }}" placeholder="JJJJ-MM-TT"></label>
+  <label>Straße<input name="strasse" value="{{ m.strasse if m }}"></label>
+  <label>PLZ<input name="plz" value="{{ m.plz if m }}"></label>
+  <label>Ort<input name="ort" value="{{ m.ort if m }}"></label>
+  <label>IBAN für die Auszahlung<input name="iban" value="{{ m.iban if m }}"></label>
+  <label>Steuer-ID<input name="steuer_id" value="{{ m.steuer_id if m }}" inputmode="numeric"></label>
+  <label>Sozialversicherungsnummer<input name="sv_nummer" value="{{ m.sv_nummer if m }}"></label>
+  <label>Tätigkeit<input name="taetigkeit" value="{{ m.taetigkeit if m }}"></label>
+  <label>Eintritt<input name="eintritt" value="{{ m.eintritt if m }}" placeholder="JJJJ-MM-TT" required></label>
+  <label>Austritt<input name="austritt" value="{{ m.austritt or '' if m }}" placeholder="JJJJ-MM-TT"></label>
+  <label class="wide">Notiz<input name="notiz" value="{{ m.notiz if m }}"></label>
+  <div class="actions"><button>{{ "Speichern" if m else "Anlegen" }}</button></div>
+</form>
+{% if m %}
+{% set k = m.merkmale[0] %}
+<h2>Merkmale</h2>
+<p class="muted">Lohnsteuerabzugsmerkmale (ELStAM) aus der Mitteilung des Bundeszentralamts für Steuern bzw. aus Mein ELSTER, Sozialversicherung aus der Anmeldung bei der Kasse. Eine Änderung gilt ab dem angegebenen Monat; ältere Fassungen bleiben für die Monate davor.</p>
+<table class="list"><tr><th>ab</th><th>StKl</th><th>Kinderfb.</th><th>Konfession</th><th>Pers.-Gr.</th><th>Beitr.-Gr.</th><th>Krankenkasse</th><th>Zusatzb.</th><th>Aufwandskonto</th></tr>
+{% for x in m.merkmale %}<tr><td>{{ x.gueltig_ab }}</td><td>{{ "pauschal" if x.pauschsteuer else x.steuerklasse }}{% if x.faktor %} ({{ x.faktor }}){% endif %}</td><td>{{ x.kinderfreibetraege }}</td><td>{{ x.konfession or "–" }}</td><td>{{ x.personengruppe }}</td><td>{{ x.beitragsgruppe }}</td><td>{{ x.krankenkasse or "–" }}</td><td>{{ x.kv_zusatz }} %</td><td>{{ x.aufwandskonto or "Vorgabe" }}</td></tr>{% endfor %}</table>
+<details><summary>Merkmale ändern</summary>
+<form method="post" action="{{ M }}/lohn/mitarbeiter/{{ m.id }}/merkmale" class="grid">
+  <label>Gültig ab Monat<input name="ab" value="{{ monat }}" placeholder="JJJJ-MM" required></label>
+  <label>Steuerklasse<select name="steuerklasse">{% for i in range(1, 7) %}<option {{ 'selected' if k.steuerklasse == i }}>{{ i }}</option>{% endfor %}</select></label>
+  <label>Faktor (nur Steuerklasse 4)<input name="faktor" value="{{ k.faktor }}" placeholder="z. B. 0,912"></label>
+  <label>Kinderfreibeträge<input name="kinderfreibetraege" value="{{ k.kinderfreibetraege }}"></label>
+  <label>Konfession<select name="konfession">{% for c, t in lohn.KONFESSIONEN.items() %}<option value="{{ c }}" {{ 'selected' if k.konfession == c }}>{{ c or "–" }} {{ t }}</option>{% endfor %}</select></label>
+  <label>Konfession Ehegatte<select name="konfession_ehegatte">{% for c, t in lohn.KONFESSIONEN.items() %}<option value="{{ c }}" {{ 'selected' if k.konfession_ehegatte == c }}>{{ c or "–" }} {{ t }}</option>{% endfor %}</select></label>
+  <label>Freibetrag monatlich<input name="freibetrag" value="{{ k.freibetrag|money_input }}"></label>
+  <label>Hinzurechnung monatlich<input name="hinzurechnung" value="{{ k.hinzurechnung|money_input }}"></label>
+  <label><span><input type="checkbox" name="pauschsteuer" value="1" {{ 'checked' if k.pauschsteuer }}> Minijob mit Pauschsteuer 2 %</span></label>
+  <label>Personengruppe<input name="personengruppe" value="{{ k.personengruppe }}" placeholder="101, 109 …"></label>
+  <label>Beitragsgruppe (KV RV AV PV)<input name="beitragsgruppe" value="{{ k.beitragsgruppe }}" placeholder="1111, 0000, 6500 …"></label>
+  <label>Krankenkasse<input name="krankenkasse" value="{{ k.krankenkasse }}"></label>
+  <label>Zusatzbeitrag der Kasse in %<input name="kv_zusatz" value="{{ k.kv_zusatz }}"></label>
+  <label>Umlage U1 in %<input name="u1" value="{{ k.u1 }}"></label>
+  <label>Umlage U2 in %<input name="u2" value="{{ k.u2 }}"></label>
+  <label>Kinder unter 25 (Pflegeversicherung)<input name="pv_kinder" value="{{ k.pv_kinder }}" inputmode="numeric"></label>
+  <label><span><input type="checkbox" name="pv_elterneigenschaft" value="1" {{ 'checked' if k.pv_elterneigenschaft }}> Elterneigenschaft nachgewiesen</span></label>
+  <label><span><input type="checkbox" name="sachsen" value="1" {{ 'checked' if k.sachsen }}> Beschäftigungsort Sachsen (Pflegeversicherung)</span></label>
+  <label>Private KV: Monatsbeitrag Basisabsicherung<input name="pkv_beitrag" value="{{ k.pkv_beitrag|money_input }}"></label>
+  <label>Private PV: Monatsbeitrag<input name="pkv_pv_beitrag" value="{{ k.pkv_pv_beitrag|money_input }}"></label>
+  <label><span><input type="checkbox" name="rv_aufstockung" value="1" {{ 'checked' if k.rv_aufstockung }}> Minijob: Rentenversicherung aufgestockt</span></label>
+  <label>Aufwandskonto<input name="aufwandskonto" value="{{ k.aufwandskonto }}" placeholder="leer = Einstellung (z. B. 6024 für Gesellschafter-Geschäftsführer)" inputmode="numeric"></label>
+  <div class="actions"><button>Merkmale speichern</button></div>
+</form></details>
+
+<h2>Bezüge und Abzüge</h2>
+<table class="list"><tr><th>Lohnart</th><th>Bezeichnung</th><th class="num">Betrag</th><th>ab</th><th>bis</th><th>Konto</th><th></th></tr>
+{% for b in m.bezuege %}<tr><td>{{ lohn.LOHNARTEN[b.lohnart] }}{% if b.satz %} {{ b.satz }} %{% endif %}</td><td>{{ b.bezeichnung }}</td><td class="num">{{ b.betrag|eur }}</td><td>{{ b.ab }}</td><td>{{ b.bis or "laufend" }}</td><td>{{ b.konto or "Vorgabe" }}</td>
+  <td>{% if not b.bis or b.bis >= monat %}<form method="post" action="{{ M }}/lohn/bezug/{{ b.id }}/beenden" class="inline"><input type="hidden" name="mitarbeiter" value="{{ m.id }}"><input name="bis" placeholder="letzter Monat" size="8" required><button class="small secondary">beenden</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">Noch keine Bezüge.</td></tr>{% endfor %}</table>
+<form method="post" action="{{ M }}/lohn/mitarbeiter/{{ m.id }}/bezug" class="grid">
+  <label>Lohnart<select name="lohnart">{% for key, t in lohn.LOHNARTEN.items() %}<option value="{{ key }}">{{ t }}</option>{% endfor %}</select></label>
+  <label>Bezeichnung<input name="bezeichnung" placeholder="z. B. Gehalt, Weihnachtsgeld"></label>
+  <label>Betrag<input name="betrag" required></label>
+  <label>ab Monat (wiederkehrend)<input name="ab" placeholder="JJJJ-MM"></label>
+  <label>bis Monat<input name="bis" placeholder="leer = laufend"></label>
+  <label>oder nur im Monat (einmalig)<input name="monat" placeholder="JJJJ-MM"></label>
+  <label>Pauschsteuersatz in %<input name="satz" placeholder="nur pauschal versteuert"></label>
+  <label>Konto<input name="konto" placeholder="leer = Einstellung" inputmode="numeric"></label>
+  <div class="actions"><button>Bezug anlegen</button></div>
+</form>
+{% if m.vortrag %}<h2>Vortrag aus einem anderen Programm</h2>
+<table class="list"><tr><th>Jahr</th><th>bis</th><th>Werte</th></tr>{% for v in m.vortrag %}<tr><td>{{ v.jahr }}</td><td>{{ v.bis_monat }}</td><td class="muted">{% for key, x in v.daten.items() %}{{ key }} {{ x if key == "sv_tage" else x|eur }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>{% endfor %}</table>{% endif %}
+<p class="muted">Jahreswerte aus einem anderen Lohnprogramm (Wechsel im laufenden Jahr) trägt die Kommandozeile ein: <code>kontor lohn vortrag</code>.</p>
+{% endif %}
+{% endblock %}

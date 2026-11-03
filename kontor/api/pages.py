@@ -71,7 +71,12 @@ async def home(request: Request):
             ergebnis = bilanz_guv(ctx, ctx.now_date().year)["positionen"]["erg"]
         except KontorError:
             pass
-    return render(request, "overview.html", {"nav": "home", "o": overview(ctx), "ergebnis": ergebnis})
+    bitcoin = None
+    if md.has(ctx, "bitcoin"):
+        from ..services import bitcoin as btc
+        bitcoin = btc.stand(ctx)
+    return render(request, "overview.html", {"nav": "home", "o": overview(ctx), "ergebnis": ergebnis,
+                                             "bitcoin": bitcoin})
 
 
 @router.get("/journal")
@@ -132,6 +137,114 @@ async def bank_apply(request: Request):
     f = await request.form()
     n = bank.apply_suggestions(C(request), int(f.get("jahr", "0")))
     return go(f"/bank?jahr={f.get('jahr', '')}", f"{n} Vorschläge übernommen")
+
+
+# -- Bitcoin (Spec 18.14, nur mit Profilschalter) --------------------------------------------------------------------
+def _btc(request: Request):
+    from ..services import bitcoin as btc
+    if not md.has(C(request), "bitcoin"):
+        raise HTTPException(404, "Bitcoin ist für diesen Mandanten aus.")
+    return btc
+
+
+@router.get("/bitcoin")
+async def bitcoin_page(request: Request, jahr: int | None = None):
+    btc = _btc(request)
+    ctx = C(request)
+    year = jahr or ctx.now_date().year
+    drafts = btc.bewegungen(ctx, status="entwurf")
+    for m in drafts:
+        m["vorschlag"] = btc.vorschlag(ctx, m)
+    moves = btc.bewegungen(ctx, year, "bestaetigt")
+    for m in moves:
+        m["bank_vorschlag"] = btc.bank_vorschlag(ctx, m)
+    invoices = [dict(r) for r in ctx.conn.execute(
+        "SELECT id, number, gross FROM documents WHERE kind <> 'angebot' AND status IN ('abgeschlossen', 'teilbezahlt') "
+        "ORDER BY number")]
+    kurse = btc.kurse_stand(ctx)
+    return render(request, "bitcoin.html", {"nav": "bitcoin", "year": year, "stand": btc.stand(ctx, year),
+                                            "b": btc.bewertung(ctx, year), "drafts": drafts, "moves": moves,
+                                            "wallets": btc.wallets(ctx), "salden": btc.salden(ctx), "kurse": kurse,
+                                            "invoices": invoices, "arten": btc.LABEL})
+
+
+@router.post("/bitcoin/{mid}/zuordnen")
+async def bitcoin_assign(request: Request, mid: int):
+    btc = _btc(request)
+    f = await request.form()
+    fields = {k: f.get(k, "").strip() for k in ("art", "rechnung", "konto", "steuer", "ziel", "eur", "gebuehr_eur",
+                                                  "vertragsdatum", "ak", "notiz") if f.get(k, "").strip()}
+    btc.zuordnen(C(request), mid, **fields)
+    if f.get("bestaetigen"):
+        btc.bestaetigen(C(request), mid)
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Gespeichert")
+
+
+@router.post("/bitcoin/{mid}/bestaetigen")
+async def bitcoin_confirm(request: Request, mid: int):
+    btc = _btc(request)
+    f = await request.form()
+    btc.bestaetigen(C(request), mid)
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Bestätigt")
+
+
+@router.post("/bitcoin/{mid}/zurueck")
+async def bitcoin_unconfirm(request: Request, mid: int):
+    btc = _btc(request)
+    f = await request.form()
+    btc.entbestaetigen(C(request), mid, f.get("grund", "") or "in der Oberfläche zurückgesetzt")
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Zurück zum Entwurf")
+
+
+@router.post("/bitcoin/{mid}/verwerfen")
+async def bitcoin_discard(request: Request, mid: int):
+    btc = _btc(request)
+    f = await request.form()
+    btc.verwerfen(C(request), mid, f.get("grund", "") or "in der Oberfläche verworfen")
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Verworfen")
+
+
+@router.post("/bitcoin/{mid}/bank")
+async def bitcoin_bank(request: Request, mid: int):
+    btc = _btc(request)
+    f = await request.form()
+    btc.bank_zuordnen(C(request), mid)
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Bankumsatz auf Verrechnung zugeordnet")
+
+
+@router.post("/bitcoin/erfassen")
+async def bitcoin_record(request: Request):
+    btc = _btc(request)
+    f = await request.form()
+    btc.erfassen(C(request), {k: f.get(k, "").strip() for k in ("wallet", "art", "datum", "sats", "gebuehr_sats", "eur",
+                                                                 "gebuehr_eur", "vertragsdatum", "rechnung", "ziel",
+                                                                 "konto", "steuer", "notiz") if f.get(k, "").strip()})
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Erfasst (Entwurf)")
+
+
+@router.post("/bitcoin/saldo")
+async def bitcoin_balance(request: Request):
+    btc = _btc(request)
+    f = await request.form()
+    btc.saldo_eintragen(C(request), f.get("wallet", ""), f.get("datum", ""), int(f.get("sats", "") or 0),
+                        f.get("notiz", ""))
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Saldo eingetragen")
+
+
+@router.post("/bitcoin/kurs")
+async def bitcoin_rate(request: Request):
+    btc = _btc(request)
+    f = await request.form()
+    btc.kurs_speichern(C(request), f.get("datum", ""), f.get("eur", ""))
+    return go(f"/bitcoin?jahr={f.get('jahr', '')}", "Kurs gespeichert")
+
+
+@router.post("/bitcoin/wallet")
+async def bitcoin_wallet(request: Request):
+    btc = _btc(request)
+    f = await request.form()
+    btc.wallet(C(request), f.get("name", ""), f.get("art", "wallet"), f.get("aktiv", "1") != "0")
+    return go("/einstellungen", "Wallet gespeichert")
 
 
 @router.get("/journal/konto/{konto}")
@@ -311,7 +424,12 @@ async def template_update(request: Request, tid: int):
 # -- Einstellungen, Protokoll, Prüfung ---------------------------------------
 @router.get("/einstellungen")
 async def settings(request: Request):
-    return render(request, "settings.html", {"nav": "einstellungen", "s": md.get_settings(C(request))})
+    ctx = C(request)
+    wallets = []
+    if md.has(ctx, "bitcoin"):
+        from ..services import bitcoin as btc
+        wallets = btc.wallets(ctx)
+    return render(request, "settings.html", {"nav": "einstellungen", "s": md.get_settings(ctx), "wallets": wallets})
 
 
 @router.post("/einstellungen")
@@ -588,7 +706,10 @@ async def doc_line_to_catalog(request: Request, did: int):
 # -- Belege -------------------------------------------------------------------
 @router.get("/belege")
 async def receipt_list(request: Request, status: str = "eingang", jahr: str = ""):
-    items = rc.list_receipts(C(request), status or None, int(jahr) if jahr.isdigit() else None)
+    ctx = C(request)
+    items = rc.list_receipts(ctx, status or None, int(jahr) if jahr.isdigit() else None)
+    for r in items:
+        r["fehlt"] = rc.missing(ctx, r) if r["status"] == "eingang" else []
     return render(request, "receipts.html", {"nav": "belege", "items": items, "status": status, "jahr": jahr,
                                              "categories": md.list_categories(C(request))})
 
@@ -662,6 +783,20 @@ def _receipt_fields(f) -> dict:
     return fields
 
 
+@router.post("/belege/bestaetigen")
+async def receipt_confirm_many(request: Request):
+    """Aus der Übersicht: ausgewählte, fertig vorbereitete Belege bestätigen, ohne sie zu öffnen."""
+    ctx = C(request)
+    ok, fehler = 0, []
+    for rid in (await request.form()).getlist("ids"):
+        try:
+            rc.confirm(ctx, int(rid))
+            ok += 1
+        except KontorError as e:
+            fehler.append(f"Beleg {rid}: {e}")
+    return go("/belege", f"{ok} bestätigt" + (" · " + " ".join(fehler) if fehler else ""))
+
+
 @router.post("/belege/{rid}")
 async def receipt_save(request: Request, rid: int):
     rc.update(C(request), rid, _receipt_fields(await request.form()))
@@ -707,11 +842,37 @@ async def vat_overview(request: Request, jahr: str = ""):
                                                  "years": list(range(today.year, today.year - 4, -1))})
 
 
+@router.get("/abschluss")
+async def month_end(request: Request, zeitraum: str = ""):
+    from ..reports.monatsabschluss import monatsabschluss
+    ctx = C(request)
+    spec = zeitraum or period_of(date.fromordinal(ctx.now_date().replace(day=1).toordinal() - 1),
+                                 md.get_settings(ctx)["ustva_period"])
+    return render(request, "monatsabschluss.html", {"nav": "umsatzsteuer", "m": monatsabschluss(ctx, spec)})
+
+
+@router.post("/abschluss/sperren")
+async def month_end_lock(request: Request):
+    from ..reports.monatsabschluss import monatsabschluss
+    f = await request.form()
+    check_confirm(request, f)
+    ctx = C(request)
+    m = monatsabschluss(ctx, f.get("zeitraum", ""))
+    if any(s["stand"] != "ok" for s in m["schritte"] if s["schluessel"] != "gesperrt"):
+        return go(f"/abschluss?zeitraum={m['zeitraum']}", "Erst die übrigen Schritte erledigen.")
+    locked = {l["month"] for l in per.locked_months(ctx)}
+    for monat in m["monate"]:
+        if monat not in locked:
+            per.lock_month(ctx, monat, f"Monatsabschluss {m['zeitraum']}")
+    return go(f"/abschluss?zeitraum={m['zeitraum']}", f"{m['name']} gesperrt")
+
+
 @router.post("/auswertungen/ust-zahlung")
 async def reports_tax_payment(request: Request):
     f = await request.form()
     pay.record_tax_payment(C(request), f.get("datum", ""), f.get("betrag", ""), f.get("notiz", ""))
-    return go("/auswertungen", "Zahlung an das Finanzamt erfasst")
+    zurueck = f.get("zurueck", "")
+    return go(zurueck if zurueck.startswith("/abschluss?") else "/auswertungen", "Zahlung an das Finanzamt erfasst")
 
 
 @router.post("/auswertungen/sperren")
@@ -782,3 +943,356 @@ async def abgaben_senden(request: Request):
 async def export_journal(request: Request, jahr: int):
     return Response(journal_csv(C(request), jahr), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="journal-{jahr}.csv"'})
+
+
+# -- Lohn (Profilschalter lohn) --------------------------------------------------------------------------------------
+def _lohn(request: Request):
+    from ..services import lohn
+    if not md.has(C(request), "lohn"):
+        raise HTTPException(404, "Lohn ist für diesen Mandanten aus (Profilschalter lohn).")
+    return lohn
+
+
+@router.get("/lohn")
+async def lohn_page(request: Request, monat: str = ""):
+    lohn = _lohn(request)
+    ctx = C(request)
+    monat = monat or ctx.now_date().strftime("%Y-%m")
+    rows = lohn.abrechnungen(ctx, monat)
+    return render(request, "lohn.html", {"nav": "lohn", "monat": monat, "rows": rows,
+                                         "kassen": lohn.beitraege_kassen(ctx, monat),
+                                         "findings": lohn.auffaelligkeiten(ctx, int(monat[:4])),
+                                         "alle": lohn.mitarbeiter(ctx)})
+
+
+@router.post("/lohn/festschreiben")
+async def lohn_festschreiben(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    check_confirm(request, f)
+    lohn.festschreiben(C(request), int(f["mitarbeiter"]), f.get("monat", ""))
+    return go(f"/lohn?monat={f.get('monat', '')}", "Festgeschrieben")
+
+
+@router.post("/lohn/festschreiben-bis")
+async def lohn_festschreiben_bis(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    check_confirm(request, f)
+    fest = lohn.festschreiben_bis(C(request), int(f["mitarbeiter"]), f.get("monat", ""))
+    return go(f"/lohn?monat={f.get('monat', '')}", f"{len(fest)} Monate festgeschrieben")
+
+
+@router.post("/lohn/lsta/extern")
+async def lohn_lsta_extern(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    lohn.lsta_extern(C(request), int(f.get("jahr", "0")), f.get("zeitraum", ""), f.get("notiz", ""))
+    return go(f"/lohn/jahr?jahr={f.get('jahr', '')}", "Als gesendet vermerkt")
+
+
+@router.post("/lohn/abrechnung/{aid}/stornieren")
+async def lohn_stornieren(request: Request, aid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    check_confirm(request, f)
+    a = lohn.abrechnung(C(request), aid)
+    lohn.stornieren(C(request), aid, f.get("grund", ""))
+    return go(f"/lohn?monat={a['monat']}", "Storniert")
+
+
+@router.get("/lohn/abrechnung/{aid}")
+async def lohn_abrechnung(request: Request, aid: int):
+    lohn = _lohn(request)
+    return render(request, "lohn_abrechnung.html", {"nav": "lohn", "a": lohn.abrechnung(C(request), aid),
+                                                    "lohnarten": lohn.LOHNARTEN})
+
+
+@router.get("/lohn/abrechnung/{aid}/pdf")
+async def lohn_abrechnung_pdf(request: Request, aid: int):
+    lohn = _lohn(request)
+    ctx = C(request)
+    a = lohn.abrechnung(ctx, aid)
+    path = ctx.data / a["pdf"]
+    if not a["pdf"] or not path.is_file():
+        raise KontorError("Die Entgeltbescheinigung fehlt im Archiv.")
+    return Response(path.read_bytes(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{path.name}"'})
+
+
+@router.get("/lohn/vorschau/{mid}/{monat}")
+async def lohn_vorschau(request: Request, mid: int, monat: str):
+    lohn = _lohn(request)
+    return render(request, "lohn_abrechnung.html", {"nav": "lohn", "a": lohn.berechnen(C(request), mid, monat),
+                                                    "lohnarten": lohn.LOHNARTEN})
+
+
+@router.get("/lohn/mitarbeiter/neu")
+async def lohn_mitarbeiter_neu(request: Request):
+    lohn = _lohn(request)
+    return render(request, "lohn_mitarbeiter.html", {"nav": "lohn", "m": None, "lohn": lohn,
+                                                     "monat": C(request).now_date().strftime("%Y-%m")})
+
+
+@router.get("/lohn/mitarbeiter/{mid}")
+async def lohn_mitarbeiter(request: Request, mid: int):
+    lohn = _lohn(request)
+    ctx = C(request)
+    return render(request, "lohn_mitarbeiter.html", {"nav": "lohn", "m": lohn.get(ctx, mid), "lohn": lohn,
+                                                     "monat": ctx.now_date().strftime("%Y-%m")})
+
+
+@router.post("/lohn/mitarbeiter")
+async def lohn_mitarbeiter_anlegen(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    mid = lohn.mitarbeiter_speichern(C(request), {k: f.get(k, "") for k in lohn.MITARBEITER_FELDER if k in f})
+    return go(f"/lohn/mitarbeiter/{mid}", "Angelegt")
+
+
+@router.post("/lohn/mitarbeiter/{mid}")
+async def lohn_mitarbeiter_aendern(request: Request, mid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    lohn.mitarbeiter_speichern(C(request), {k: f.get(k, "") for k in lohn.MITARBEITER_FELDER if k in f}, mid)
+    return go(f"/lohn/mitarbeiter/{mid}", "Gespeichert")
+
+
+@router.post("/lohn/mitarbeiter/{mid}/merkmale")
+async def lohn_merkmale(request: Request, mid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    data = {k: f.get(k, "") for k in lohn.MERKMAL_VORGABEN if k in f}
+    for k in lohn.JA_NEIN_MERKMALE:                                   # Checkbox fehlt, wenn leer
+        data[k] = "1" if f.get(k) else "0"
+    lohn.merkmale_setzen(C(request), mid, f.get("ab", ""), data)
+    return go(f"/lohn/mitarbeiter/{mid}", "Merkmale gespeichert")
+
+
+@router.post("/lohn/mitarbeiter/{mid}/bezug")
+async def lohn_bezug(request: Request, mid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    data = {k: f.get(k, "") for k in ("lohnart", "bezeichnung", "betrag", "satz", "konto", "ab", "bis", "monat")
+            if f.get(k)}
+    lohn.bezug(C(request), mid, data)
+    return go(f"/lohn/mitarbeiter/{mid}", "Bezug gespeichert")
+
+
+@router.post("/lohn/bezug/{bid}/beenden")
+async def lohn_bezug_beenden(request: Request, bid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    lohn.bezug_beenden(C(request), bid, f.get("bis", ""))
+    return go(f"/lohn/mitarbeiter/{f.get('mitarbeiter', '')}", "Bezug beendet")
+
+
+def _lohn_jahr(request: Request, jahr: int, **extra):
+    lohn = _lohn(request)
+    ctx = C(request)
+    lstb = []
+    for m in lohn.mitarbeiter(ctx):
+        try:
+            lstb.append(lohn.lstb_werte(ctx, m["id"], jahr))
+        except KontorError as e:
+            lstb.append({"mitarbeiter_id": m["id"], "name": m["name"], "fehler": str(e)})
+    return render(request, "lohn_jahr.html", {"nav": "lohn", "jahr": jahr, "j": lohn.lohnjournal(ctx, jahr),
+                                              "kosten": lohn.lohnkosten(ctx, jahr),
+                                              "zeitraeume": lohn.zeitraeume(ctx, jahr), "lstb": lstb,
+                                              "meldungen": lohn.meldungen(ctx, jahr), "s": md.get_settings(ctx),
+                                              "findings": lohn.auffaelligkeiten(ctx, jahr),
+                                              "mitarbeiter": lohn.mitarbeiter(ctx), "elstam": lohn.elstam(ctx),
+                                              "elstam_vorgaenge": lohn.elstam_vorgaenge(ctx),
+                                              "elstam_arten": lohn.ELSTAM_ARTEN,
+                                              "heute": ctx.now_date().replace(day=1).isoformat(), **extra})
+
+
+@router.get("/lohn/jahr")
+async def lohn_jahr(request: Request, jahr: int | None = None):
+    return _lohn_jahr(request, jahr or C(request).now_date().year)
+
+
+@router.get("/lohn/lohnkonto/{mid}/{jahr}.pdf")
+async def lohn_lohnkonto_pdf(request: Request, mid: int, jahr: int):
+    from ..render.lohn import lohnkonto
+    lohn = _lohn(request)
+    k = lohn.lohnkonto(C(request), mid, jahr)
+    return Response(lohnkonto(k), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="lohnkonto-{jahr}-{mid}.pdf"'})
+
+
+@router.get("/lohn/lohnzettel/{mid}/{jahr}.pdf")
+async def lohn_lohnzettel_pdf(request: Request, mid: int, jahr: int):
+    lohn = _lohn(request)
+    return Response(lohn.lohnzettel(C(request), mid, jahr), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="lohnsteuerbescheinigung-{jahr}-{mid}.pdf"'})
+
+
+@router.get("/export/lohnjournal/{jahr}.csv")
+async def lohn_journal_csv(request: Request, jahr: int):
+    lohn = _lohn(request)
+    return Response(lohn.lohnjournal_csv(C(request), jahr), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="lohnjournal-{jahr}.csv"'})
+
+
+@router.post("/lohn/lsta/pruefen")
+async def lohn_lsta_pruefen(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    jahr = int(f.get("jahr", "0"))
+    try:
+        return _lohn_jahr(request, jahr, pruefung=lohn.lsta_pruefen(C(request), jahr, f.get("zeitraum", "")))
+    except KontorError as e:
+        return _lohn_jahr(request, jahr, fehler=str(e))
+
+
+@router.post("/lohn/lstb/pruefen")
+async def lohn_lstb_pruefen(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    jahr = int(f.get("jahr", "0"))
+    try:
+        return _lohn_jahr(request, jahr, pruefung=lohn.lstb_pruefen(C(request), int(f["mitarbeiter"]), jahr))
+    except KontorError as e:
+        return _lohn_jahr(request, jahr, fehler=str(e))
+
+
+@router.post("/lohn/senden")
+async def lohn_senden(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    check_confirm(request, f)
+    jahr = int(f.get("jahr", "0"))
+    if not f.get("datenschutz"):
+        return _lohn_jahr(request, jahr, fehler="Vor dem Senden die Datenschutzhinweise der Finanzverwaltung lesen und "
+                                                "bestätigen (ELSTER-Entwicklerbereich).")
+    test = f.get("modus") != "echt"
+    try:
+        if f.get("art") == "lsta":
+            result = lohn.lsta_senden(C(request), jahr, f.get("zeitraum", ""), f.get("pin", ""), test)
+        else:
+            result = lohn.lstb_senden(C(request), int(f.get("mitarbeiter", "0")), jahr, f.get("pin", ""), test)
+    except KontorError as e:
+        return _lohn_jahr(request, jahr, fehler=str(e))
+    return _lohn_jahr(request, jahr, ergebnis=result)
+
+
+@router.post("/lohn/elstam/pruefen")
+async def lohn_elstam_pruefen(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    jahr = int(f.get("jahr", "0"))
+    try:
+        return _lohn_jahr(request, jahr, pruefung=lohn.elstam_pruefen(C(request), f.get("art", ""),
+                                                                      [int(f.get("mitarbeiter", "0"))],
+                                                                      f.get("referenzdatum", "") or None))
+    except KontorError as e:
+        return _lohn_jahr(request, jahr, fehler=str(e))
+
+
+@router.post("/lohn/elstam/senden")
+async def lohn_elstam_senden(request: Request):
+    lohn = _lohn(request)
+    f = await request.form()
+    check_confirm(request, f)
+    jahr = int(f.get("jahr", "0"))
+    if not f.get("datenschutz"):
+        return _lohn_jahr(request, jahr, fehler="Vor dem Senden die Datenschutzhinweise der Finanzverwaltung lesen und "
+                                                "bestätigen (ELSTER-Entwicklerbereich).")
+    test = f.get("modus") != "echt"
+    try:
+        if f.get("art") == "abholen":
+            result = lohn.elstam_abholen(C(request), f.get("pin", ""), test)
+        else:
+            result = lohn.elstam_senden(C(request), f.get("art", ""), [int(f.get("mitarbeiter", "0"))],
+                                        f.get("pin", ""), test, f.get("referenzdatum", "") or None)
+    except KontorError as e:
+        return _lohn_jahr(request, jahr, fehler=str(e))
+    return _lohn_jahr(request, jahr, ergebnis=result)
+
+
+@router.post("/lohn/elstam/{eid}/uebernehmen")
+async def lohn_elstam_uebernehmen(request: Request, eid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    lohn.elstam_uebernehmen(C(request), eid)
+    return go(f"/lohn/jahr?jahr={f.get('jahr', '')}", "ELStAM übernommen")
+
+
+@router.post("/lohn/elstam/{eid}/verwerfen")
+async def lohn_elstam_verwerfen(request: Request, eid: int):
+    lohn = _lohn(request)
+    f = await request.form()
+    lohn.elstam_verwerfen(C(request), eid, f.get("grund", ""))
+    return go(f"/lohn/jahr?jahr={f.get('jahr', '')}", "Verworfen")
+
+
+# -- Aufträge zur Freigabe ------------------------------------------------------------------------------------------
+def _freigaben(request: Request, **extra):
+    from ..services import auftraege
+    ctx = C(request)
+    s = md.get_settings(ctx)
+    return render(request, "freigaben.html", {"nav": "freigaben", "offen": auftraege.liste(ctx, "offen"),
+                                              "erledigt": [a for a in auftraege.liste(ctx) if a["status"] != "offen"][:30],
+                                              "senden_moeglich": bool(s["elster_hersteller_id"] and s["elster_zertifikat"]),
+                                              **extra})
+
+
+@router.get("/freigaben")
+async def freigaben_page(request: Request):
+    return _freigaben(request)
+
+
+@router.post("/freigaben")
+async def freigaben_senden(request: Request):
+    from ..services import auftraege
+    f = await request.form()
+    check_confirm(request, f)
+    if not f.get("datenschutz"):
+        return _freigaben(request, fehler="Vor dem Senden die Datenschutzhinweise der Finanzverwaltung lesen und "
+                                          "bestätigen (ELSTER-Entwicklerbereich).")
+    try:
+        ergebnisse = auftraege.freigeben(C(request), [int(i) for i in f.getlist("auftrag")], f.get("pin", ""))
+    except KontorError as e:
+        return _freigaben(request, fehler=str(e))
+    return _freigaben(request, ergebnisse=ergebnisse)
+
+
+def _freigabe(request: Request, aid: int, **extra):
+    from ..services import auftraege
+    a = auftraege.get(C(request), aid)
+    return render(request, "freigabe.html", {"nav": "freigaben", "a": a, "zeilen": auftraege.zeilen(a), **extra})
+
+
+@router.get("/freigaben/{aid}")
+async def freigabe_detail(request: Request, aid: int):
+    return _freigabe(request, aid)
+
+
+@router.post("/freigaben/{aid}/pruefen")
+async def freigabe_pruefen(request: Request, aid: int):
+    from ..services import auftraege
+    try:
+        return _freigabe(request, aid, pruefung=auftraege.pruefen(C(request), aid))
+    except KontorError as e:
+        return _freigabe(request, aid, fehler=str(e))
+
+
+@router.get("/freigaben/{aid}/protokoll.pdf")
+async def freigabe_protokoll(request: Request, aid: int):
+    from ..services import auftraege
+    ctx = C(request)
+    raw = (auftraege.get(ctx, aid)["ergebnis"].get("protokoll") or "")
+    path = Path(raw).resolve() if raw else None
+    if not path or not path.is_file() or (ctx.data / "archiv" / "elster").resolve() not in path.parents:
+        raise HTTPException(404, "Kein Protokoll zu diesem Auftrag.")
+    return Response(path.read_bytes(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{path.name}"'})
+
+
+@router.post("/freigaben/{aid}/verwerfen")
+async def freigaben_verwerfen(request: Request, aid: int):
+    from ..services import auftraege
+    f = await request.form()
+    auftraege.verwerfen(C(request), aid, f.get("grund", ""))
+    return go("/freigaben", "Verworfen")

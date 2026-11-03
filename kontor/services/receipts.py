@@ -206,10 +206,18 @@ def _parts_from_rows(rows: list[dict]) -> list[tuple[str, int, int, int]]:
             for p in rows]
 
 
+def _filed_name(r: dict, source: Path) -> str:
+    """Name im Ablageordner: Hash-Präfix, Belegdatum, Lieferant, Belegnummer (z. B. 3f9c0a7b21de-2026-05-14-Hosting-0042.pdf)."""
+    parts = [r["sha256"][:12], r["receipt_date"], _safe_name(r["supplier"])[:40].strip("._-")]
+    if (r["receipt_number"] or "").strip():
+        parts.append(_safe_name(r["receipt_number"])[:30])
+    return "-".join(p for p in parts if p) + source.suffix.lower()
+
+
 def _file_to_month(ctx: Ctx, r: dict) -> None:
     """Geprüfte Belege liegen unter belege/JJJJ/MM nach Belegdatum; ändert sich das Datum, zieht die Datei mit."""
     source = ctx.data / r["file_path"]
-    target = ctx.data / "belege" / r["receipt_date"][:4] / r["receipt_date"][5:7] / source.name
+    target = ctx.data / "belege" / r["receipt_date"][:4] / r["receipt_date"][5:7] / _filed_name(r, source)
     if source == target:
         return
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -251,12 +259,9 @@ def update(ctx: Ctx, rid: int, fields: dict) -> None:
                   {**clean, **({"parts": raw_parts} if raw_parts is not None else {})})
 
 
-def confirm(ctx: Ctx, rid: int) -> dict:
-    require_human(ctx)
-    r = get_receipt(ctx, rid)
-    if r["status"] != "eingang":
-        raise KontorError("Der Beleg ist schon geprüft.")
-    stored = receipt_parts(ctx, rid)
+def missing(ctx: Ctx, r: dict) -> list[str]:
+    """Was zum Bestätigen noch fehlt (leer = bereit)."""
+    stored = receipt_parts(ctx, r["id"])
     missing = [label for key, label in (("receipt_date", "Belegdatum"), ("supplier", "Lieferant"),
                                         ("category_id", "Kategorie")) if not r[key]]
     if not stored:
@@ -269,13 +274,23 @@ def confirm(ctx: Ctx, rid: int) -> dict:
             missing.append("Anlass der Bewirtung")
         if not r["bewirtung_teilnehmer"].strip():
             missing.append("Bewirtete Personen")
-    if missing:
-        raise KontorError("Zum Bestätigen fehlt: " + ", ".join(missing) + ".")
+    return missing
+
+
+def confirm(ctx: Ctx, rid: int) -> dict:
+    require_human(ctx)
+    r = get_receipt(ctx, rid)
+    if r["status"] != "eingang":
+        raise KontorError("Der Beleg ist schon geprüft.")
+    stored = receipt_parts(ctx, rid)
+    fehlt = missing(ctx, r)
+    if fehlt:
+        raise KontorError("Zum Bestätigen fehlt: " + ", ".join(fehlt) + ".")
     parts = _parts_from_rows(stored) if stored else _single_part(r)
     source = ctx.data / r["file_path"]
     folder = ctx.data / "belege" / r["receipt_date"][:4] / r["receipt_date"][5:7]
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / source.name
+    target = folder / _filed_name(r, source)
     os.replace(source, target)
     try:
         with tx(ctx.conn):

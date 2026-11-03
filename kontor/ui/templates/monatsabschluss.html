@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% block title %}Monatsabschluss {{ m.name }}{% endblock %}
+{% block main %}
+<p><a href="{{ M }}/umsatzsteuer">← Umsatzsteuer</a></p>
+<h1>Monatsabschluss {{ m.name }}</h1>
+{% set h = m.herleitung %}
+<div class="abschluss-kopf {{ 'fertig' if not m.offen }}">
+  <div><span>An das Finanzamt</span><b>{{ h.zahllast|eur if h.zahllast >= 0 else (-h.zahllast)|eur ~ " zurück" }}</b><small class="{{ 'error-text' if m.ueberfaellig }}">Frist {{ m.frist|date_de }}{{ " · überfällig" if m.ueberfaellig }}</small></div>
+  <div class="stand">{% if not m.offen %}✓ Abgeschlossen{% else %}Noch {{ m.offen }} Schritt{{ "e" if m.offen != 1 }}{% endif %}</div>
+</div>
+
+<ol class="schritte">
+{% for s in m.schritte %}<li class="{{ s.stand }}"><i>{{ "✓" if s.stand == "ok" else ("!" if s.stand == "warn" else loop.index) }}</i>
+  <div><b>{{ s.titel }}</b><p>{{ s.text }}{% if s.link %} <a href="{{ M }}{{ s.link }}">Öffnen</a>{% endif %}
+  {% if s.auftrag %} <a href="{{ M }}/freigaben/{{ s.auftrag }}">Auftrag und Protokoll</a>{% endif %}</p>
+  {% if s.schluessel == "zahlung" and s.stand != "ok" %}<form method="post" action="{{ M }}/auswertungen/ust-zahlung" class="inline-form">
+    <input type="date" name="datum" value="{{ m.heute }}" aria-label="Datum"><input name="betrag" value="{{ '%.2f'|format(-h.zahllast / 100)|replace('.', ',') }}" aria-label="Betrag (negativ = gezahlt)" size="9">
+    <input type="hidden" name="notiz" value="USt {{ m.zeitraum }}"><input type="hidden" name="zurueck" value="/abschluss?zeitraum={{ m.zeitraum }}"><button class="small">Zahlung erfassen</button></form>{% endif %}
+  {% if s.schluessel == "gesperrt" and s.stand != "ok" and m.offen == 1 %}<form method="post" action="{{ M }}/abschluss/sperren" class="inline-form" data-ask="{{ m.name }} sperren? Danach lassen sich Belege und Zahlungen im Zeitraum nicht mehr ändern.">
+    <input type="hidden" name="confirm" value="{{ confirm }}"><input type="hidden" name="zeitraum" value="{{ m.zeitraum }}"><button class="small">{{ m.name }} sperren</button></form>{% endif %}
+  </div></li>{% endfor %}
+</ol>
+
+<h2>Woraus sich der Betrag ergibt</h2>
+<div class="herleitung">
+  <div class="zeile"><span>Umsatzsteuer auf deine Einnahmen</span><b class="num">+ {{ h.umsatzsteuer.summe|eur }}</b></div>
+  <ul>{% for e in h.umsatzsteuer.posten %}<li><span>{{ e.datum|date_de }} · {{ e.nummer }} · {{ e.kunde }}</span><span class="num">{{ e.brutto|eur }} brutto → {{ e.steuer|eur }}</span></li>{% else %}<li class="muted">keine Einnahmen</li>{% endfor %}
+  {% if h.rundung %}<li class="muted"><span>ELSTER rechnet die Steuer aus vollen Euro</span><span class="num">{{ h.rundung|eur }}</span></li>{% endif %}</ul>
+
+  <div class="zeile"><span>Vorsteuer aus Rechnungen an dich</span><b class="num">− {{ h.vorsteuer.summe|eur }}</b></div>
+  <ul>{% for v in h.vorsteuer.posten %}<li><span>{{ v.datum|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.lieferant }}</a></span><span class="num">{{ v.steuer|eur }}</span></li>{% else %}<li class="muted">keine</li>{% endfor %}</ul>
+
+  <div class="zeile"><span>Reverse Charge (ausländische Anbieter)</span><b class="num">± {{ h.reverse_charge.summe|eur }}</b></div>
+  <ul>{% for v in h.reverse_charge.posten %}<li><span>{{ v.datum|date_de }} · <a href="{{ M }}/belege/{{ v.id }}">{{ v.lieferant }}</a> · netto {{ v.netto|eur }}</span><span class="num">{{ v.steuer|eur }}</span></li>{% else %}<li class="muted">keine</li>{% endfor %}
+  {% if h.reverse_charge.posten %}<li class="muted"><span>Die Steuer schuldest du und ziehst sie im selben Zug wieder ab: kostet nichts.</span><span></span></li>{% endif %}</ul>
+
+  <div class="zeile summe"><span>= An das Finanzamt</span><b class="num">{{ h.zahllast|eur }}</b></div>
+</div>
+
+<details><summary>Kennzahlen wie im ELSTER-Formular</summary>
+<table class="list"><tr><th>Kennzahl</th><th>Bedeutung</th><th class="num">Bemessungsgrundlage</th><th class="num">Steuer</th></tr>
+{% for kz, f in m.fields.items() if f.basis or f.tax %}<tr><td><b>{{ kz }}</b></td><td>{{ f.label }}</td>
+<td class="num">{{ (f.basis ~ " €") if f.basis is not none else "" }}</td><td class="num">{{ f.tax|eur if f.tax is not none else "" }}</td></tr>{% endfor %}</table>
+</details>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Abrechnung {{ a.monat }} {{ a.name }}{% endblock %}
+{% block main %}
+{% set s = a.summen %}{% set k = a.merkmale %}{% set sv = a.sv %}
+<h1>Abrechnung {{ a.monat }} · {{ a.name }} <span class="muted">{{ "festgeschrieben" if a.status == "fest" else ("storniert" if a.status == "storniert" else "Entwurf") }}</span></h1>
+<p><a href="{{ M }}/lohn?monat={{ a.monat }}">zurück zum Monat</a>{% if a.pdf %} · <a href="{{ M }}/lohn/abrechnung/{{ a.id }}/pdf">Entgeltbescheinigung (PDF)</a>{% endif %}</p>
+{% if a.status == "storniert" %}<p class="error">Storniert am {{ a.storniert_am[:10]|date_de }}: {{ a.storno_grund }}</p>{% endif %}
+<div class="cards">
+  <div class="card"><span>Gesamtbrutto</span><b>{{ s.brutto|eur }}</b></div>
+  <div class="card"><span>Netto</span><b>{{ s.netto|eur }}</b></div>
+  <div class="card"><span>Auszahlung</span><b>{{ s.auszahlung|eur }}</b></div>
+  <div class="card"><span>Kosten Arbeitgeber</span><b>{{ s.ag_kosten|eur }}</b></div>
+</div>
+<p class="muted">Steuerklasse {{ "pauschal 2 %" if k.pauschsteuer else k.steuerklasse }}{% if k.faktor %} (Faktor {{ k.faktor }}){% endif %} · Kinderfreibeträge {{ k.kinderfreibetraege }} · Konfession {{ k.konfession or "keine" }} · Personengruppe {{ k.personengruppe }} · Beitragsgruppe {{ k.beitragsgruppe }} · {{ k.krankenkasse or "keine Krankenkasse" }} · SV-Tage {{ s.sv_tage }} · Art {{ sv.art }}</p>
+
+<table class="list"><tr><th>Bezug / Abzug</th><th>Lohnart</th><th>Kennzeichen</th><th class="num">Betrag</th></tr>
+{% for p in a.positionen %}<tr><td>{{ p.bezeichnung }}</td><td>{{ lohnarten[p.lohnart] }}{% if p.satz %} {{ p.satz }} %{% endif %}</td><td>{{ p.kennzeichen }}</td><td class="num">{{ p.betrag|eur }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Keine Bezüge in diesem Monat.</td></tr>{% endfor %}</table>
+
+<table class="list"><tr><th></th><th class="num">Arbeitnehmer</th><th class="num">Arbeitgeber</th></tr>
+<tr><td>Lohnsteuer</td><td class="num">{{ s.lst|eur }}</td><td class="num">{{ s.pauschal_lst|eur }}</td></tr>
+<tr><td>Solidaritätszuschlag</td><td class="num">{{ s.soli|eur }}</td><td class="num">{{ s.pauschal_soli|eur }}</td></tr>
+<tr><td>Kirchensteuer</td><td class="num">{{ (s.kist + s.kist_ehegatte)|eur }}</td><td class="num">{{ s.pauschal_kist|eur }}</td></tr>
+<tr><td>Pauschsteuer Minijob</td><td class="num"></td><td class="num">{{ s.pauschsteuer|eur }}</td></tr>
+<tr><td>Krankenversicherung</td><td class="num">{{ s.kv_an|eur }}</td><td class="num">{{ (s.kv_ag + s.kv_pauschal)|eur }}</td></tr>
+<tr><td>Rentenversicherung</td><td class="num">{{ s.rv_an|eur }}</td><td class="num">{{ (s.rv_ag + s.rv_pauschal)|eur }}</td></tr>
+<tr><td>Arbeitslosenversicherung</td><td class="num">{{ s.av_an|eur }}</td><td class="num">{{ s.av_ag|eur }}</td></tr>
+<tr><td>Pflegeversicherung</td><td class="num">{{ s.pv_an|eur }}</td><td class="num">{{ s.pv_ag|eur }}</td></tr>
+<tr><td>Umlagen U1, U2, Insolvenzgeld</td><td class="num"></td><td class="num">{{ (s.u1 + s.u2 + s.insolvenz)|eur }}</td></tr>
+<tr><td>Zuschuss private KV/PV</td><td class="num"></td><td class="num">{{ (s.pkv_zuschuss + s.pv_zuschuss)|eur }}</td></tr></table>
+
+<details><summary>Rechenweg</summary>
+<p class="muted">Sozialversicherung: beitragspflichtig KV/PV {{ sv.bemessung_kv|eur }}, RV/AV {{ sv.bemessung_rv|eur }}.</p>
+{% if a.pap %}<p class="muted">Lohnsteuer nach dem Programmablaufplan des BMF {{ a.monat[:4] }}{% if a.pap.tagesfaktor > 1 %}, Teilmonat: Tageswerte × {{ a.pap.tagesfaktor }}{% endif %}.</p>
+<table class="list"><tr><th>Eingabe</th><th>Wert</th></tr>{% for key, v in a.pap.eingaben.items() %}<tr><td><code>{{ key }}</code></td><td>{{ v }}</td></tr>{% endfor %}</table>
+<table class="list"><tr><th>Ergebnis</th><th class="num">Cent</th></tr>{% for key, v in a.pap.ergebnis.items() %}<tr><td><code>{{ key }}</code></td><td class="num">{{ v }}</td></tr>{% endfor %}</table>{% endif %}
+</details>
+
+{% if a.status == "fest" %}<h2>Stornieren</h2>
+<p class="muted">Eine festgeschriebene Abrechnung ändert sich nicht. Zum Korrigieren stornieren und den Monat neu festschreiben. Ist die Lohnsteuer-Anmeldung schon gesendet, danach eine berichtigte senden.</p>
+<form method="post" action="{{ M }}/lohn/abrechnung/{{ a.id }}/stornieren" class="inline" data-ask="Abrechnung stornieren?"><input type="hidden" name="confirm" value="{{ confirm }}"><input name="grund" placeholder="Grund" required size="30"><button class="small secondary">stornieren</button></form>{% endif %}
+{% endblock %}
